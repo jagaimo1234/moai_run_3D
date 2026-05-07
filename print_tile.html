@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>タイル印刷</title>
+    <style>
+        @page { size: A4; margin: 0; }
+        body { margin: 0; padding: 0; background: #f0f0f0; }
+        .page {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            margin: 0 auto;
+            position: relative;
+            page-break-after: always;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .grid {
+            display: grid;
+            gap: 0;
+        }
+        .item { overflow: hidden; }
+        .item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        
+        @media print {
+            body { background: none; }
+            .page { margin: 0; page-break-after: always; }
+            #mobile-notice { display: none; }
+        }
+        #mobile-notice {
+            position: sticky; top: 0; left: 0; width: 100%; background: #333; color: white;
+            padding: 15px; text-align: center; font-size: 14px; z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="mobile-notice">
+        表示されない場合は、ブラウザのメニューから「共有」→「印刷」を選択してください。
+    </div>
+    <div id="pages-container"></div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const imgsParam = params.get('imgs');
+        const count = parseInt(params.get('count')) || 12;
+        const name = params.get('name');
+        if (name) document.title = "一括印刷 - " + name;
+
+        let imageUrls = [];
+        if (imgsParam) {
+            imageUrls = imgsParam.split(',').map(s => decodeURIComponent(s));
+        } else if (params.get('img')) {
+            imageUrls = [decodeURIComponent(params.get('img'))];
+        }
+
+        if (imageUrls.length > 0) {
+            // Calculate best grid once
+            let cols = Math.ceil(Math.sqrt(count * (210/297)));
+            let rows = Math.ceil(count / cols);
+            if (count === 2) { cols = 1; rows = 2; }
+            if (count === 6) { cols = 2; rows = 3; }
+            if (count === 12) { cols = 3; rows = 4; }
+            if (count === 20) { cols = 4; rows = 5; }
+            if (count === 24) { cols = 4; rows = 6; }
+
+            const size = Math.min(210 / cols, 297 / rows);
+            const container = document.getElementById('pages-container');
+
+            // Generate one page per image
+            imageUrls.forEach(url => {
+                const page = document.createElement('div');
+                page.className = 'page';
+                
+                const grid = document.createElement('div');
+                grid.className = 'grid';
+                grid.style.gridTemplateColumns = `repeat(${cols}, ${size}mm)`;
+                grid.style.gridTemplateRows = `repeat(${rows}, ${size}mm)`;
+
+                for (let i = 0; i < count; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.style.width = size + 'mm';
+                    div.style.height = size + 'mm';
+                    const image = document.createElement('img');
+                    image.src = url;
+                    div.appendChild(image);
+                    grid.appendChild(div);
+                }
+                page.appendChild(grid);
+                container.appendChild(page);
+            });
+
+            window.onload = () => {
+                setTimeout(() => { window.print(); }, 1000);
+            };
+        } else {
+            document.body.innerHTML = "画像データが見つかりません。";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kanazawa Moataro POS System</title>
+  <style>
+    :root {
+      --bg: #0f0f13; --panel-bg: #1c1c24; --text: #fff;
+      --accent: #00d2ff; --accent-hover: #00b8e6;
+      --border: rgba(255, 255, 255, 0.1);
+      --success: #2ecc71; --warning: #f39c12; --danger: #e74c3c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+    
+    /* Login Screen */
+    #login-screen {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; gap: 20px; text-align: center;
+    }
+    .btn {
+      padding: 12px 24px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:active { background: var(--accent-hover); transform: scale(0.98); }
+    
+    /* Main App */
+    #app-container { display: none; height: 100vh; flex-direction: column; }
+    
+    /* Header & System Tabs */
+    header {
+      background: var(--panel-bg); padding: 12px 20px; display: flex; justify-content: space-between;
+      align-items: center; border-bottom: 1px solid var(--border);
+    }
+    .sys-tab-container { display: flex; gap: 10px; }
+    .sys-tab-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+      padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: 0.2s;
+    }
+    .sys-tab-btn.active { background: var(--text); color: var(--bg); }
+    
+    /* Event Tabs */
+    .event-tabs {
+      display: flex; gap: 12px; padding: 12px 20px; background: #15151a;
+      overflow-x: auto; white-space: nowrap; border-bottom: 1px solid var(--border);
+    }
+    .event-tab {
+      padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold;
+      cursor: pointer; background: rgba(255,255,255,0.1); transition: 0.2s;
+    }
+    .event-tab.active { background: var(--accent); color: #000; }
+
+    /* Views */
+    .view-section { display: none; flex: 1; overflow: hidden; }
+    .view-section.active { display: flex; }
+    
+    /* POS View */
+    #pos-view { flex-direction: row; }
+    .product-grid {
+      flex: 2; padding: 16px; overflow-y: auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; align-content: start;
+    }
+    .pos-item {
+      background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px; cursor: pointer; text-align: center; transition: 0.1s;
+    }
+    .pos-item:active { transform: scale(0.95); border-color: var(--accent); }
+    .pos-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+    .pos-item-name { font-size: 12px; line-height: 1.3; height: 32px; overflow: hidden; margin-bottom: 4px; }
+    .pos-item-price { font-weight: bold; color: var(--accent); }
+    .pos-item-stock { font-size: 11px; color: rgba(255,255,255,0.5); }
+    
+    .cart-sidebar {
+      flex: 1; min-width: 300px; max-width: 400px; background: var(--panel-bg); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .cart-header { padding: 16px; font-weight: bold; border-bottom: 1px solid var(--border); }
+    .cart-items { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .cart-item { display: flex; justify-content: space-between; align-items: center; }
+    .cart-item-info { flex: 1; }
+    .cart-item-name { font-size: 14px; margin-bottom: 4px; }
+    .cart-item-controls { display: flex; gap: 10px; align-items: center; }
+    .qty-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 28px; height: 28px; border-radius: 4px; }
+    .cart-footer { padding: 20px; border-top: 1px solid var(--border); }
+    .cart-total { display: flex; justify-content: space-between; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+    .checkout-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .checkout-btns button { padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; color: white; }
+    .btn-cash { background: var(--success); }
+    .btn-paypay { background: #E60012; }
+    .btn-credit { background: var(--accent); color: black !important; grid-column: span 2; }
+    
+    /* Common container for Settings & Dashboard */
+    .scroll-container { flex: 1; overflow-y: auto; padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; }
+    
+    /* Settings View */
+    .settings-row {
+      display: flex; align-items: center; gap: 12px; background: var(--panel-bg); padding: 12px;
+      border-radius: 12px; margin-bottom: 10px;
+    }
+    .settings-row img { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; }
+    .settings-info { flex: 1; }
+    .settings-name { font-size: 14px; }
+    .settings-inputs { display: flex; gap: 10px; }
+    .settings-inputs input {
+      width: 80px; padding: 8px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); text-align: right;
+    }
+
+    /* Checkout Form */
+    .checkout-form { padding: 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2); flex-shrink: 0; }
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 4px; }
+    .form-select, .form-input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+    .form-row { display: flex; gap: 10px; }
+    .form-row > div { flex: 1; }
+    
+    /* Dashboard History */
+    .history-card { background: var(--panel-bg); border-radius: 8px; padding: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+    .history-main { flex: 1; }
+    .history-time { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+    .history-items { font-size: 14px; margin-bottom: 6px; line-height: 1.4; }
+    .history-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .history-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); }
+    .history-amount { font-size: 18px; font-weight: bold; color: var(--accent); text-align: right; }
+    .history-method { font-size: 12px; margin-top: 4px; color: rgba(255,255,255,0.7); text-align: right; }
+    
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      #pos-view { flex-direction: column; }
+      .product-grid { flex: 1; }
+      .cart-sidebar { flex: none; height: 45vh; max-width: 100%; border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <h2>🔒 管理者ログイン</h2>
+    <p style="color: rgba(255,255,255,0.6); font-size: 14px;">POSシステムを利用するにはログインしてください</p>
+    <button class="btn btn-primary" id="login-btn">Googleでログイン</button>
+  </div>
+
+  <!-- Main App -->
+  <div id="app-container">
+    <header>
+      <div class="sys-tab-container">
+        <button class="sys-tab-btn active" onclick="switchSysTab('pos')">レジ (POS)</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('dashboard')">ダッシュボード</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('stats')">📊 統計</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('settings')">在庫設定</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('selection')">出品選択</button>
+      </div>
+      <div>
+        <span id="user-email" style="font-size: 12px; opacity: 0.6; margin-right: 12px;"></span>
+        <button onclick="logout()" style="background:none; border:none; color:#e74c3c; cursor:pointer;">ログアウト</button>
+      </div>
+    </header>
+
+    <!-- Event Tabs -->
+    <div style="display:flex; align-items:center; overflow-x:auto; padding:0 20px 10px; gap:10px; background:var(--header-bg); border-bottom:1px solid var(--border);">
+      <div class="event-tabs" id="event-tabs" style="display:flex; gap:10px; padding:0; flex-wrap:nowrap; overflow:visible;">
+        <!-- Injected via JS -->
+      </div>
+      <button onclick="openNewEventModal()" style="background:rgba(0,210,255,0.1); border:1px solid #00d2ff; color:#00d2ff; padding:8px 16px; border-radius:20px; font-weight:bold; cursor:pointer; font-size:12px; flex-shrink:0; white-space:nowrap;">
+        ＋ 新規追加
+      </button>
+    </div>
+
+    <!-- POS View -->
+    <section id="pos-view" class="view-section active">
+      <div class="product-grid" id="pos-grid"></div>
+      <div class="cart-sidebar">
+        <div class="cart-header">🛒 カート</div>
+        <div class="cart-items" id="cart-items"></div>
+        
+        <div class="checkout-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>性別</label>
+              <select id="cust-gender" class="form-select">
+                <option value="">未選択</option>
+                <option value="男性">男性</option>
+                <option value="女性">女性</option>
+                <option value="不明">不明/その他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>年代</label>
+              <select id="cust-age" class="form-select">
+                <option value="">未選択</option>
+                <option value="10代">10代</option>
+                <option value="20代">20代</option>
+                <option value="30代">30代</option>
+                <option value="40代">40代</option>
+                <option value="50代以上">50代以上</option>
+                <option value="キッズ">キッズ</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>購入きっかけ</label>
+            <select id="cust-reason" class="form-select">
+              <option value="">未選択</option>
+              <option value="通りすがり">通りすがり(一般)</option>
+              <option value="フォロワー">フォロワー</option>
+              <option value="SNS・宣伝投稿">SNS・宣伝投稿</option>
+              <option value="口コミ・紹介">口コミ・紹介</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex: 0.6;">
+              <label>値引き (円)</label>
+              <input type="number" id="cust-discount" class="form-input" value="0" min="0" oninput="updateCartUI()">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>対応メモ</label>
+              <input type="text" id="cust-memo" class="form-input" placeholder="特別な対応など">
+            </div>
+          </div>
+        </div>
+
+        <div class="cart-footer">
+          <div class="cart-total">
+            <span>合計</span>
+            <span id="cart-total-price">¥0</span>
+          </div>
+          <div class="checkout-btns">
+            <button class="btn-cash" onclick="checkout('cash')">現金</button>
+            <button class="btn-paypay" onclick="checkout('paypay')">PayPay</button>
+            <button class="btn-credit" onclick="checkout('credit')">クレジット</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dashboard View -->
+    <section id="dashboard-view" class="view-section">
+      <div class="scroll-container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2>📊 ダッシュボード (<span id="dash-event-name"></span>)</h2>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" style="background:rgba(231,76,60,0.2); color:var(--danger); border:1px solid var(--danger); font-size:11px; padding:4px 8px;" onclick="resetSalesData()">売上のみリセット</button>
+            <button class="btn" style="background:rgba(231,76,60,0.2); color:var(--danger); border:1px solid var(--danger); font-size:11px; padding:4px 8px;" onclick="resetInventoryLogData()">在庫履歴のみリセット</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px;">
+          <div style="background: var(--panel-bg); padding: 20px; border-radius: 12px;">
+            <h3>イベント総売上</h3>
+            <div id="dash-total" style="font-size: 36px; font-weight: bold; color: var(--accent); margin: 10px 0;">¥0</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; color: rgba(255,255,255,0.7); font-size: 14px;">
+              <div style="display:flex; justify-content:space-between;"><span>💵 現金:</span> <span id="dash-cash">¥0</span></div>
+              <div style="display:flex; justify-content:space-between;"><span>📱 PayPay:</span> <span id="dash-paypay">¥0</span></div>
+              <div style="display:flex; justify-content:space-between;"><span>💳 クレジット:</span> <span id="dash-credit">¥0</span></div>
+            </div>
+          </div>
+          <div style="background: var(--panel-bg); padding: 20px; border-radius: 12px;">
+            <h3>顧客サマリー</h3>
+            <div id="dash-summary" style="font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.8); margin-top: 10px;">
+              <!-- Injected via JS -->
+              データがありません
+            </div>
+          </div>
+          <div style="background: var(--panel-bg); padding: 20px; border-radius: 12px;">
+            <h3>作品別 販売数</h3>
+            <div id="dash-product-sales" style="font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.8); margin-top: 10px; max-height: 200px; overflow-y: auto;">
+              <!-- Injected via JS -->
+              データがありません
+            </div>
+          </div>
+        </div>
+        
+        <h3 style="margin-top: 30px; margin-bottom: 12px;">🕒 購入履歴タイムライン</h3>
+        <div id="dash-history" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- History items injected via JS -->
+        </div>
+
+        <h3 style="margin-top: 30px; margin-bottom: 12px;">📦 在庫変更履歴</h3>
+        <div id="dash-inventory-log" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Inventory log items injected via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section id="stats-view" class="view-section">
+      <div style="max-width:1000px; margin:0 auto; padding:20px;">
+        <h2 style="margin-bottom:20px; display:flex; align-items:center; gap:10px;">📊 プレイ・アクセス統計</h2>
+        
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px; margin-bottom:30px;">
+          <div style="background:var(--panel-bg); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+            <h3 style="font-size:14px; opacity:0.7;">本日のプレイ人数</h3>
+            <div id="stats-today-players" style="font-size:32px; font-weight:bold; color:var(--accent); margin:10px 0;">0</div>
+            <div style="font-size:12px; opacity:0.5;">ページアクセス: <span id="stats-today-access">0</span></div>
+          </div>
+          <div style="background:var(--panel-bg); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+            <h3 style="font-size:14px; opacity:0.7;">本日のスコア状況</h3>
+            <div id="stats-today-max-score" style="font-size:24px; font-weight:bold; margin:5px 0;">MAX: 0</div>
+            <div id="stats-today-avg-score" style="font-size:14px; opacity:0.8;">平均: 0</div>
+          </div>
+        </div>
+
+        <div style="background:var(--panel-bg); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+          <h3 style="margin-bottom:15px;">📅 日別推移 (過去14日間)</h3>
+          <div id="stats-daily-table" style="width:100%; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border); text-align:left;">
+                  <th style="padding:10px;">日付</th>
+                  <th style="padding:10px;">アクセス</th>
+                  <th style="padding:10px;">プレイ回数</th>
+                  <th style="padding:10px;">最高スコア</th>
+                  <th style="padding:10px;">平均</th>
+                </tr>
+              </thead>
+              <tbody id="stats-table-body">
+                <!-- Data injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+
+
+    <!-- Admin Edit Modal -->
+    <div id="edit-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:var(--panel-bg); width:100%; max-width:500px; border-radius:12px; padding:20px; border:1px solid var(--border);">
+        <h3 id="edit-modal-title" style="margin-bottom:15px;">編集</h3>
+        <input type="hidden" id="edit-modal-type">
+        <textarea id="edit-textarea" style="width:100%; height:150px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:15px;"></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn" style="background:#444; color:white;" onclick="closeEditModal()">キャンセル</button>
+          <button class="btn btn-primary" onclick="saveEditModal()">保存する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Event Modal -->
+    <div id="new-event-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:var(--panel-bg); width:100%; max-width:400px; border-radius:12px; padding:20px; border:1px solid var(--border);">
+        <h3 style="margin-bottom:15px;">新規イベント追加</h3>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; opacity:0.7;">イベント管理用ID (例: osaka2026) ※半角英数</label>
+          <input type="text" id="new-event-id" class="form-input" style="margin-top:4px;" placeholder="半角英数字">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; opacity:0.7;">イベント表示名</label>
+          <input type="text" id="new-event-name" class="form-input" style="margin-top:4px;" placeholder="例: 大阪ハンドメイド">
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px; opacity:0.7;">開催日 (スケジュール管理用)</label>
+          <input type="date" id="new-event-date" class="form-input" style="margin-top:4px; color-scheme:dark;">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn" style="background:#444; color:white;" onclick="document.getElementById('new-event-modal').style.display='none'">キャンセル</button>
+          <button class="btn btn-primary" id="new-event-save-btn">追加する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dev Product Modal -->
+    <div id="dev-product-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:var(--panel-bg); width:100%; max-width:400px; border-radius:12px; padding:20px; border:1px solid gold;">
+        <h3 style="margin-bottom:15px; color:gold;">🚀 新作の開発状況を更新</h3>
+        <p style="font-size:12px; opacity:0.8; margin-bottom:15px;">お客さんの期待を高めるために、開発の進捗を報告しましょう！</p>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px; opacity:0.7;">作品の仮名称</label>
+          <input type="text" id="dev-product-name" class="form-input" style="margin-top:4px;" placeholder="まだ秘密の新作...">
+        </div>
+        
+        <!-- ステータススライダー -->
+        <div style="margin-bottom:24px; background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+          <label style="display:block; font-size:12px; opacity:0.6; margin-bottom:12px;">現在のステータス</label>
+          <input type="range" id="dev-product-status" min="0" max="6" value="0" step="1" style="width:100%; accent-color:gold; cursor:pointer;" oninput="updateDevStatusLabel(this.value)">
+          <div style="margin-top:15px; text-align:center;">
+            <div id="status-label-main" style="font-size:20px; font-weight:bold; color:gold; margin-bottom:4px;">💭 発掘中</div>
+            <div id="status-label-sub" style="font-size:12px; opacity:0.8;">アイデア・構想段階</div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn" style="background:#444; color:white;" onclick="document.getElementById('dev-product-modal').style.display='none'">やめる</button>
+          <button class="btn btn-primary" id="dev-product-save-btn" style="background:linear-gradient(45deg, #f1c40f, #f39c12); color:#000; font-weight:bold;">更新する！</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings View -->
+    <section id="settings-view" class="view-section">
+      <div class="scroll-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2>📦 在庫・価格設定 (<span id="settings-event-name"></span>)</h2>
+          <div style="display: flex; gap: 15px; align-items: center;">
+            <label style="font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); padding:8px 12px; border-radius:8px; cursor:pointer;">
+              <input type="checkbox" id="global-stock-toggle" onchange="toggleGlobalStockDisplay(this.checked)">
+              お品書きへの在庫表示
+            </label>
+            <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全作品の在庫を0にリセット</button>
+            <button class="btn btn-primary" onclick="savePrices()">価格を保存</button>
+          </div>
+        </div>
+        <div id="settings-list"></div>
+      </div>
+    </section>
+
+    <!-- Selection View -->
+    <section id="selection-view" class="view-section">
+      <div class="scroll-container">
+        <h2 id="selection-event-name" style="margin-bottom:20px; border-bottom:2px solid var(--accent); padding-bottom:8px;"></h2>
+        
+        <!-- Deadline Alert Box -->
+        <div id="deadline-alert-container" style="display:none; padding:16px; border-radius:4px 8px 8px 4px; margin-bottom:24px;">
+          <div id="deadline-info-text"></div>
+        </div>
+
+        <div id="schedule-info-container" style="display:none; background:rgba(255,255,255,0.05); padding:12px 16px; border-radius:8px; margin-bottom:24px; font-size:13px; color:rgba(255,255,255,0.8); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div><span style="opacity:0.6;">開催予定日:</span> <strong id="schedule-date-text"></strong></div>
+          <div id="schedule-countdown-text" style="font-weight:bold; color:var(--accent);"></div>
+        </div>
+
+        <!-- Visibility Config -->
+        <div style="background:var(--panel-bg); padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid var(--border);">
+          <h3 style="font-size:16px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            👁️ カタログ公開設定
+          </h3>
+          <div style="display:flex; align-items:center; gap:12px; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px;">
+            <select id="event-visibility-select" onchange="updateEventVisibility(this.value)" class="form-select" style="width: auto; font-weight:bold;">
+              <option value="public">🌐 公開中 (作品を表示)</option>
+              <option value="preparing">🚧 準備中 (イベント名のみ表示)</option>
+              <option value="hidden">❌ 非公開 (イベントごと隠す)</option>
+            </select>
+            <span id="visibility-desc" style="font-size:12px; opacity:0.6;"></span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:18px; color:var(--accent); margin-bottom:4px;">✨ さぁ、イベントへ持っていく作品を登録しましょう！！！</h3>
+            <p style="font-size:12px; opacity:0.8;">えっ、まさか...新しい作品は追加しないの！！？？</p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="selection-mode-btn" class="btn" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); color:white; font-size:13px;" onclick="toggleSelectionSortMode()">お品書き並べ替えモードへ</button>
+            <button class="btn" style="background:rgba(255,215,0,0.15); border:1px solid gold; color:gold; font-size:13px; font-weight:bold;" onclick="openDevProductModal()">＋ 開発予定の新作を宣言する！</button>
+            <button class="btn" style="background:rgba(0,210,255,0.15); border:1px solid #00d2ff; color:#00d2ff; font-size:13px; font-weight:bold;" onclick="generateBulkTilePrint()">✅ 選択中を一括タイル印刷</button>
+            <button class="btn btn-primary" onclick="saveSelectedProducts()" style="font-size:14px; padding:8px 20px;">選択内容を保存</button>
+          </div>
+        </div>
+        <div id="selection-list" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px;">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="data.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getDatabase, ref as refDB, get as getDB } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSeS6TQHnjVM7ZIrywt3cz16iPPdmh62A",
+      authDomain: "moai-catalog.firebaseapp.com",
+      projectId: "moai-catalog",
+      storageBucket: "moai-catalog.firebasestorage.app",
+      messagingSenderId: "421468245254",
+      appId: "1:421468245254:web:c49e0846d2015820d8a287"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+
+    const rankingConfig = {
+      apiKey: "AIzaSyA8V8kmjfQ0FEE4bq3R4sBC94yLHbWfd-I",
+      authDomain: "moai-horror-game-ranking.firebaseapp.com",
+      databaseURL: "https://moai-horror-game-ranking-default-rtdb.firebaseio.com",
+      projectId: "moai-horror-game-ranking"
+    };
+    const rankingApp = initializeApp(rankingConfig, "rankingApp");
+    const rdb = getDatabase(rankingApp);
+
+    // App State
+    let currentEventKey = DEFAULT_EVENT;
+    let inventoryData = {};
+    let stockData = {};
+    let badgesData = {};
+    let descriptionsData = {};
+    window.customProductsData = {};
+    window.eventProductsData = {}; // { eventKey: [ids] }
+    window.eventConfigData = {};   // { eventKey: { visible: bool } }
+    window.printSelection = [];    // Temporary selection for printing
+    window.DEV_STATUSES = [
+      { label: "💭 発掘中", desc: "アイデア・構想段階" },
+      { label: "🛠 開発中", desc: "モデリング・試作段階" },
+      { label: "🔧 調整中", desc: "修正・改善・検証段階" },
+      { label: "✨ 完成", desc: "開発成功・完成版確定" },
+      { label: "📦 販売準備中", desc: "量産・出品準備" },
+      { label: "⏸🗿 封印中", desc: "一時中断・再検討中" },
+      { label: "🚫🗿 封印作品", desc: "開発終了・没作品" }
+    ];
+    let cart = {}; // { productId: qty }
+    let currentEditingProductId = null;
+    let unsubInventory = null;
+    let unsubSales = null;
+    let unsubSelection = null;
+    let unsubConfig = null;
+
+    window.switchEvent = (key) => {
+      document.querySelectorAll('.event-tab').forEach(el => el.classList.remove('active'));
+      const activeBtn = document.getElementById(`tab-${key}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      currentEventKey = key;
+      cart = {}; // Clear cart when switching events
+      updateCartUI();
+      listenToEventData();
+
+      // Check if we need to kick them to selection view
+      const activeTabBtn = document.querySelector('.sys-tab-btn.active');
+      if (activeTabBtn) {
+        const activeTab = activeTabBtn.getAttribute('onclick');
+        if (activeTab && (activeTab.includes("'settings'") || activeTab.includes("'pos'"))) {
+          const allEvents = window.getAllEvents(eventConfigData);
+          let selectedIds = eventProductsData[currentEventKey];
+          if (!selectedIds) selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+          
+          if (selectedIds.length === 0) {
+            alert("このイベントは出品作品が未登録のため、出品選択画面に移動します。");
+            window.switchSysTab('selection');
+          }
+        }
+      }
+    };
+
+    function buildTabs() {
+      const tabsContainer = document.getElementById('event-tabs');
+      tabsContainer.innerHTML = '';
+      const allEvents = window.getAllEvents(eventConfigData);
+      
+      Object.keys(allEvents).forEach(key => {
+        const btn = document.createElement('div');
+        btn.id = `tab-${key}`;
+        btn.className = `event-tab ${key === currentEventKey ? 'active' : ''}`;
+        btn.textContent = allEvents[key].label;
+        btn.onclick = () => window.switchEvent(key);
+        tabsContainer.appendChild(btn);
+      });
+    }
+
+    // Call initially for default events
+    buildTabs();
+
+    // Navigation
+    window.switchSysTab = (tabId) => {
+      if (tabId === 'settings' || tabId === 'pos') {
+        const allEvents = window.getAllEvents(eventConfigData);
+        let selectedIds = eventProductsData[currentEventKey];
+        if (!selectedIds) selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+        
+        if (selectedIds.length === 0) {
+          alert("出品作品が登録されていません！\n先に「出品選択」タブで作品を選んで保存してください。");
+          tabId = 'selection';
+        }
+      }
+
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.sys-tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(`${tabId}-view`).classList.add('active');
+      document.querySelector(`.sys-tab-btn[onclick="switchSysTab('${tabId}')"]`).classList.add('active');
+      
+      if (tabId === 'stats' && window.updateStats) {
+        window.updateStats();
+      }
+    };
+
+    // Auth
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("Login Error:", error);
+        alert("ログインに失敗しました。\nローカルでテストする場合は、URLを「http://localhost:8081/pos.html」などの localhost で開くか、FirebaseのAuthorized domainsに現在のURLを追加してください。\n\nエラー内容: " + error.message);
+      }
+    });
+    window.logout = () => signOut(auth);
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        document.getElementById('user-email').textContent = user.email;
+        
+        // Global Listeners
+        onSnapshot(doc(db, "settings", "event_products"), (snap) => {
+          if (snap.exists()) eventProductsData = snap.data();
+          renderAll();
+        });
+        onSnapshot(doc(db, "settings", "event_config"), (snap) => {
+          if (snap.exists()) eventConfigData = snap.data();
+          buildTabs();
+          updateVisibilityUI();
+          renderAll();
+        });
+        onSnapshot(doc(db, "settings", "custom_products"), (snap) => {
+          if (snap.exists()) window.customProductsData = snap.data();
+          renderAll();
+        });
+
+        listenToEventData();
+      } else {
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('app-container').style.display = 'none';
+      }
+    });
+
+    function renderAll() {
+      renderPOS();
+      renderSettings();
+      renderSelection();
+    }
+
+    function updateVisibilityUI() {
+      const config = eventConfigData[currentEventKey];
+      let status = 'public';
+      if (config) {
+        if (config.status) {
+          status = config.status;
+        } else if (config.visible === false) {
+          status = 'hidden';
+        }
+      }
+      
+      const select = document.getElementById('event-visibility-select');
+      const desc = document.getElementById('visibility-desc');
+      if (select) select.value = status;
+      if (desc) {
+        if (status === 'public') desc.textContent = 'お品書きにイベントと作品がすべて公開されます。';
+        else if (status === 'preparing') desc.textContent = 'お品書きにタブは表示されますが、中身は「準備中」となります。';
+        else if (status === 'hidden') desc.textContent = 'お品書きからこのイベント自体が完全に消えます。';
+      }
+    }
+
+    function getActiveProducts(useMasterOrder = false) {
+      const allEvents = window.getAllEvents(eventConfigData);
+      const selectedIds = eventProductsData[currentEventKey];
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      
+      // Fallback: If no selection data exists in Firestore, use data.js products
+      if (!selectedIds) return allEvents[currentEventKey]?.products || [];
+      
+      if (useMasterOrder) {
+        // 管理用：MASTER_PRODUCTSの並び順（初期状態）を維持
+        return allMaster.filter(p => selectedIds.includes(p.id));
+      } else {
+        // お品書き用：selectedIdsの並び順（カスタム並び替え）を尊重
+        return selectedIds
+          .map(id => allMaster.find(p => p.id === id))
+          .filter(p => p !== undefined);
+      }
+    }
+
+    function listenToEventData() {
+      const allEvents = window.getAllEvents(eventConfigData);
+      const currentEv = allEvents[currentEventKey];
+      if (!currentEv) return; // Prevent errors if event is missing
+      
+      const evLabel = currentEv.label;
+      document.getElementById('dash-event-name').textContent = evLabel;
+      document.getElementById('settings-event-name').textContent = evLabel;
+      document.getElementById('selection-event-name').textContent = evLabel + " - 出品作品の選択";
+      
+      updateVisibilityUI();
+
+      if (unsubInventory) unsubInventory();
+      if (unsubSales) unsubSales();
+
+      // Listen to stock for global toggle and manual status
+      onSnapshot(doc(db, "settings", "stock"), (docSnap) => {
+        if (docSnap.exists()) {
+          stockData = docSnap.data();
+          const toggleEl = document.getElementById('global-stock-toggle');
+          if (toggleEl) toggleEl.checked = stockData._displayStock !== false;
+          renderSettings(); // Re-render to update dropdowns
+        }
+      });
+
+      // Listen to badges for Recommend status
+      onSnapshot(doc(db, "settings", "badges"), (docSnap) => {
+        if (docSnap.exists()) {
+          badgesData = docSnap.data();
+          renderSettings();
+        }
+      });
+
+      // Listen to descriptions
+      onSnapshot(doc(db, "settings", "descriptions"), (docSnap) => {
+        if (docSnap.exists()) {
+          descriptionsData = docSnap.data();
+          renderSettings();
+        }
+      });
+
+      // Listen to announcements
+      onSnapshot(doc(db, "settings", "announcements"), (docSnap) => {
+        if (docSnap.exists()) {
+          announcementsData = docSnap.data();
+          renderSettings();
+        }
+      });
+
+      // Listen to specific event's inventory logs (settings/inventory_log_kurima)
+      onSnapshot(doc(db, "settings", "inventory_log_" + currentEventKey), (docSnap) => {
+        const logContainer = document.getElementById('dash-inventory-log');
+        logContainer.innerHTML = '';
+        if (docSnap.exists()) {
+          const records = docSnap.data().records || [];
+          const sortedRecords = [...records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
+          sortedRecords.forEach(r => {
+            const timeStr = new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const qtyStr = r.qty > 0 ? `+${r.qty}` : `${r.qty}`;
+            const color = r.qty > 0 ? 'var(--success)' : 'var(--danger)';
+            
+            logContainer.innerHTML += `
+              <div class="history-card">
+                <div class="history-main">
+                  <div class="history-time">${timeStr}</div>
+                  <div class="history-items">${r.productName}</div>
+                  <div class="history-tags">
+                    <span class="history-tag" style="background:rgba(255,255,255,0.2);">${r.reason}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="history-amount" style="color:${color}; font-size:20px;">${qtyStr}個</div>
+                </div>
+              </div>
+            `;
+          });
+          if (sortedRecords.length === 0) logContainer.innerHTML = '<div style="color:rgba(255,255,255,0.5);">履歴がありません</div>';
+        } else {
+          logContainer.innerHTML = '<div style="color:rgba(255,255,255,0.5);">履歴がありません</div>';
+        }
+      });
+
+      // Listen to specific event's inventory (settings/inventory_kurima)
+      unsubInventory = onSnapshot(doc(db, "settings", "inventory_" + currentEventKey), (docSnap) => {
+        if (docSnap.exists()) {
+          inventoryData = docSnap.data();
+        } else {
+          inventoryData = {};
+        }
+        renderAll();
+      });
+
+      // Listen to specific event's sales (settings/sales_kurima)
+      unsubSales = onSnapshot(doc(db, "settings", "sales_" + currentEventKey), (docSnap) => {
+        let total = 0, cash = 0, paypay = 0, credit = 0;
+        let reasons = {};
+        let productSales = {};
+        const historyContainer = document.getElementById('dash-history');
+        historyContainer.innerHTML = '';
+        
+        if (docSnap.exists()) {
+          const records = docSnap.data().records || [];
+          
+          // Sort records by timestamp descending (newest first)
+          const sortedRecords = [...records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
+          sortedRecords.forEach(r => {
+            // Totals
+            total += r.totalAmount;
+            if (r.paymentMethod === 'cash') cash += r.totalAmount;
+            if (r.paymentMethod === 'paypay') paypay += r.totalAmount;
+            if (r.paymentMethod === 'credit') credit += r.totalAmount;
+            
+            // Reasons summary
+            if (r.customer && r.customer.reason) {
+              reasons[r.customer.reason] = (reasons[r.customer.reason] || 0) + 1;
+            }
+            
+            // Product sales aggregation
+            if (r.items) {
+              r.items.forEach(item => {
+                productSales[item.name] = (productSales[item.name] || 0) + item.qty;
+              });
+            }
+            
+            // Build history card
+            const timeStr = new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            let itemsStr = r.items.map(i => `${i.name} ×${i.qty}`).join('<br>');
+            let tagsHtml = '';
+            if (r.customer) {
+              if (r.customer.gender) tagsHtml += `<span class="history-tag">${r.customer.gender}</span>`;
+              if (r.customer.age) tagsHtml += `<span class="history-tag">${r.customer.age}</span>`;
+              if (r.customer.reason) tagsHtml += `<span class="history-tag" style="background:rgba(0,210,255,0.2); color:var(--accent);">${r.customer.reason}</span>`;
+            }
+            if (r.memo) tagsHtml += `<span class="history-tag" style="background:rgba(243,156,18,0.2); color:var(--warning);">📝 ${r.memo}</span>`;
+            if (r.discount > 0) tagsHtml += `<span class="history-tag" style="background:rgba(231,76,60,0.2); color:var(--danger);">値引 -¥${r.discount}</span>`;
+
+            let methodStr = r.paymentMethod === 'cash' ? '現金' : r.paymentMethod === 'paypay' ? 'PayPay' : 'クレジット';
+            let methodColor = r.paymentMethod === 'cash' ? 'var(--success)' : r.paymentMethod === 'paypay' ? '#E60012' : 'var(--accent)';
+
+            historyContainer.innerHTML += `
+              <div class="history-card">
+                <div class="history-main">
+                  <div class="history-time">${timeStr}</div>
+                  <div class="history-items">${itemsStr}</div>
+                  <div class="history-tags">${tagsHtml}</div>
+                </div>
+                <div>
+                  <div class="history-amount">¥${r.totalAmount.toLocaleString()}</div>
+                  <div class="history-method" style="color: ${methodColor}; font-weight: bold;">${methodStr}</div>
+                </div>
+              </div>
+            `;
+          });
+          
+          if (sortedRecords.length === 0) {
+            historyContainer.innerHTML = '<div style="color:rgba(255,255,255,0.5);">まだ売上がありません</div>';
+          }
+        }
+        
+        document.getElementById('dash-total').textContent = `¥${total.toLocaleString()}`;
+        document.getElementById('dash-cash').textContent = `¥${cash.toLocaleString()}`;
+        document.getElementById('dash-paypay').textContent = `¥${paypay.toLocaleString()}`;
+        document.getElementById('dash-credit').textContent = `¥${credit.toLocaleString()}`;
+        
+        // Render summary
+        const summaryDiv = document.getElementById('dash-summary');
+        let summaryHtml = '';
+        if (Object.keys(reasons).length > 0) {
+          Object.entries(reasons).sort((a,b)=>b[1]-a[1]).forEach(([reason, count]) => {
+            summaryHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding:4px 0;">
+              <span>${reason}</span> <span>${count}件</span>
+            </div>`;
+          });
+          summaryDiv.innerHTML = summaryHtml;
+        } else {
+          summaryDiv.innerHTML = 'データがありません';
+        }
+        
+        // Render Product Sales
+        const prodSalesDiv = document.getElementById('dash-product-sales');
+        let prodSalesHtml = '';
+        if (Object.keys(productSales).length > 0) {
+          Object.entries(productSales).sort((a,b)=>b[1]-a[1]).forEach(([name, qty]) => {
+            prodSalesHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding:4px 0;">
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${name}</span> 
+              <span style="font-weight:bold; color:var(--accent);">${qty}個</span>
+            </div>`;
+          });
+          prodSalesDiv.innerHTML = prodSalesHtml;
+        } else {
+          prodSalesDiv.innerHTML = 'データがありません';
+        }
+        updateStats();
+      });
+    }
+
+    window.updateStats = function() {
+      const statsRef = refDB(rdb, 'stats');
+      getDB(statsRef).then(snap => {
+        const statsData = snap.val() || {};
+        const tbody = document.getElementById('stats-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        // 日付でソート（降順）
+        const sortedDates = Object.keys(statsData).sort().reverse();
+        const today = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '-');
+        
+        sortedDates.forEach((date, i) => {
+          const d = statsData[date];
+          const scores = d.scores ? Object.values(d.scores).map(s => s.score) : [];
+          const max = scores.length > 0 ? Math.max(...scores) : 0;
+          const avg = scores.length > 0 ? Math.round(scores.reduce((a,b) => a+b, 0) / scores.length) : 0;
+          
+          if (date === today) {
+            if(document.getElementById('stats-today-players')) document.getElementById('stats-today-players').textContent = d.playerCount || 0;
+            if(document.getElementById('stats-today-access')) document.getElementById('stats-today-access').textContent = d.accessCount || 0;
+            if(document.getElementById('stats-today-max-score')) document.getElementById('stats-today-max-score').textContent = `MAX: ${max}`;
+            if(document.getElementById('stats-today-avg-score')) document.getElementById('stats-today-avg-score').textContent = `平均: ${avg}`;
+          }
+
+          if (i < 14) {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+            tr.innerHTML = `
+              <td style="padding:10px; font-weight:bold;">${date}</td>
+              <td style="padding:10px;">${d.accessCount || 0}</td>
+              <td style="padding:10px;">${d.playerCount || 0}</td>
+              <td style="padding:10px; color:var(--accent); font-weight:bold;">${max}</td>
+              <td style="padding:10px; opacity:0.8;">${avg}</td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      });
+    }
+
+    function renderSettings() {
+      const list = document.getElementById('settings-list');
+      list.innerHTML = '';
+      // 在庫管理画面は「管理用（初期並び順）」で表示
+      const products = getActiveProducts(true);
+      
+      products.forEach(p => {
+        const inv = inventoryData[p.id] || { price: 0, initial: 0, current: 0 };
+        
+        // Badge cycling styles
+        const badgeValue = badgesData[p.id] || 'none';
+        let badgeLabel = 'なし';
+        let badgeStyle = 'background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.3); border-color:transparent;';
+        if (badgeValue === 'recommend') {
+            badgeLabel = '👍 おすすめ';
+            badgeStyle = 'background:rgba(52,152,219,0.15); color:#3498db; border-color:#3498db;';
+        } else if (badgeValue === 'super') {
+            badgeLabel = '👑 超おすすめ';
+            badgeStyle = 'background:rgba(241,196,15,0.15); color:#f1c40f; border-color:#f1c40f;';
+        }
+
+        // Stock cycling styles
+        const manualStatus = stockData[p.id] || 'none';
+        let stockLabel = 'なし';
+        let stockStyle = 'background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.3); border-color:transparent;';
+        if (manualStatus === 'onsale') {
+            stockLabel = '販売中';
+            stockStyle = 'background:rgba(46,204,113,0.15); color:#2ecc71; border-color:#2ecc71;';
+        } else if (manualStatus === 'few') {
+            stockLabel = '残りわずか';
+            stockStyle = 'background:rgba(230,126,34,0.15); color:#e67e22; border-color:#e67e22;';
+        } else if (manualStatus === 'soldout') {
+            stockLabel = '売り切れ';
+            stockStyle = 'background:rgba(231,76,60,0.15); color:#e74c3c; border-color:#e74c3c;';
+        }
+
+        list.innerHTML += `
+          <div class="settings-row" style="flex-direction:column; align-items:stretch;">
+            <div style="display:flex; gap:12px; align-items:center;">
+              <img src="${p.image}" alt="">
+              <div class="settings-info">
+                <div class="settings-name">${p.name.replace(/\n/g, ' ')}</div>
+                <div style="font-size:14px; font-weight:bold; margin-top:4px; color:var(--accent);">搬入総数: ${inv.initial} / 現在庫: ${inv.current}</div>
+              </div>
+              <div><span style="font-size:10px;display:block;">価格(¥)</span><input type="number" id="price-${p.id}" value="${inv.price}" style="width:70px;"></div>
+            </div>
+            
+            <div style="display:flex; gap:6px; align-items:center; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; margin-top:10px;">
+              <span style="font-size:12px; color:rgba(255,255,255,0.7);">在庫調整:</span>
+              <input type="number" id="adj-qty-${p.id}" placeholder="+ / -" style="width:70px; padding:6px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <select id="adj-reason-${p.id}" style="padding:6px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); flex:1;">
+                <option value="初期搬入">初期搬入</option>
+                <option value="追加制作">追加制作</option>
+                <option value="在庫発見">在庫発見</option>
+                <option value="不良品破棄">不良品破棄(-)</option>
+                <option value="その他">その他</option>
+              </select>
+              <button onclick="applyStockAdjustment('${p.id}')" style="padding:6px 12px; border:none; border-radius:4px; background:var(--success); color:white; font-weight:bold; cursor:pointer;">適用</button>
+              <button onclick="resetProductInventory('${p.id}')" style="padding:6px 12px; border:1px solid var(--danger); border-radius:4px; background:none; color:var(--danger); font-size:11px; cursor:pointer;">リセット</button>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:10px; opacity:0.5;">ピックアップ:</span>
+                <button onclick="cycleRecommendStatus('${p.id}')" style="font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); cursor:pointer; min-width:80px; ${badgeStyle}">
+                  ${badgeLabel}
+                </button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:10px; opacity:0.5;">手動在庫:</span>
+                <button onclick="cycleManualStock('${p.id}')" style="font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); cursor:pointer; min-width:80px; ${stockStyle}">
+                  ${stockLabel}
+                </button>
+              </div>
+              <div style="flex:1;"></div>
+              <button onclick="openEditModal('${p.id}', 'desc')" style="font-size:11px; padding:6px 10px; background:#34495e; color:white; border:none; border-radius:4px; cursor:pointer;">✏️ 説明</button>
+              <button onclick="openEditModal('${p.id}', 'announce')" style="font-size:11px; padding:6px 10px; background:#2980b9; color:white; border:none; border-radius:4px; cursor:pointer;">📢 告知</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Edit Modals Logic
+    window.openEditModal = (pId, type) => {
+      currentEditingProductId = pId;
+      const products = MASTER_PRODUCTS;
+      const p = products.find(x => x.id === pId);
+      
+      let currentVal = '';
+      if (type === 'desc') {
+        currentVal = descriptionsData[pId] !== undefined ? descriptionsData[pId] : (p?.desc || '');
+        document.getElementById('edit-modal-title').textContent = '作品説明の編集';
+      } else {
+        currentVal = announcementsData[pId] || '';
+        document.getElementById('edit-modal-title').textContent = 'お知らせの編集';
+      }
+      
+      document.getElementById('edit-textarea').value = currentVal;
+      document.getElementById('edit-modal-type').value = type;
+      document.getElementById('edit-modal').style.display = 'flex';
+    };
+
+    window.closeEditModal = () => {
+      document.getElementById('edit-modal').style.display = 'none';
+    };
+
+    window.saveEditModal = async () => {
+      const type = document.getElementById('edit-modal-type').value;
+      const newVal = document.getElementById('edit-textarea').value;
+      const pId = currentEditingProductId;
+      
+      try {
+        if (type === 'desc') {
+          await setDoc(doc(db, "settings", "descriptions"), { [pId]: newVal }, { merge: true });
+        } else {
+          await setDoc(doc(db, "settings", "announcements"), { [pId]: newVal }, { merge: true });
+        }
+        closeEditModal();
+        alert("保存しました。");
+      } catch(e) { console.error(e); alert("保存に失敗しました。"); }
+    };
+
+    window.cycleRecommendStatus = async (pId) => {
+      if (!auth.currentUser) return;
+      const current = badgesData[pId] || 'none';
+      let next = 'none';
+      if (current === 'none') next = 'recommend';
+      else if (current === 'recommend') next = 'super';
+      else next = 'none';
+      try {
+        await setDoc(doc(db, "settings", "badges"), { [pId]: next }, { merge: true });
+      } catch(e) { console.error(e); }
+    };
+
+    window.cycleManualStock = async (pId) => {
+      if (!auth.currentUser) return;
+      const current = stockData[pId] || 'none';
+      let next = 'none';
+      if (current === 'none') next = 'onsale';
+      else if (current === 'onsale') next = 'few';
+      else if (current === 'few') next = 'soldout';
+      else next = 'none';
+      try {
+        await setDoc(doc(db, "settings", "stock"), { [pId]: next }, { merge: true });
+      } catch(e) { console.error(e); }
+    };
+
+    window.toggleGlobalStockDisplay = async (checked) => {
+      if (!auth.currentUser) return;
+      try {
+        await setDoc(doc(db, "settings", "stock"), { _displayStock: checked }, { merge: true });
+      } catch(e) {
+        console.error(e);
+      }
+    };
+
+    window.applyStockAdjustment = async (pId) => {
+      if (!auth.currentUser) return;
+      const qty = parseInt(document.getElementById(`adj-qty-${pId}`).value);
+      if (!qty || qty === 0) return alert("増減数を入力してください");
+      
+      const reason = document.getElementById(`adj-reason-${pId}`).value;
+      const oldInv = inventoryData[pId] || { price: 0, initial: 0, current: 0 };
+      
+      const newInitial = (oldInv.initial || 0) + qty;
+      const newCurrent = (oldInv.current || 0) + qty;
+      const newInventory = { ...inventoryData };
+      
+      newInventory[pId] = { price: oldInv.price, initial: newInitial, current: newCurrent };
+      
+      // Stock log entry
+      const pName = MASTER_PRODUCTS.find(x => x.id === pId)?.name || pId;
+      const logRecord = {
+        timestamp: new Date().toISOString(),
+        type: 'adjust',
+        productId: pId,
+        productName: pName.replace(/\n/g, ' '),
+        qty: qty,
+        reason: reason
+      };
+
+      try {
+        // 1. Update inventory
+        await setDoc(doc(db, "settings", "inventory_" + currentEventKey), newInventory);
+        
+        // 2. Append to log array
+        const logDocRef = doc(db, "settings", "inventory_log_" + currentEventKey);
+        try {
+          await updateDoc(logDocRef, { records: arrayUnion(logRecord) });
+        } catch(e) {
+          await setDoc(logDocRef, { records: [logRecord] });
+        }
+        
+        // 3. Update global stock badge
+        let newStockStatus = {};
+        const ratio = newCurrent / (newInitial || 1);
+        if (newCurrent <= 0) newStockStatus[pId] = 'soldout';
+        else if (ratio <= 0.3) newStockStatus[pId] = 'few';
+        else newStockStatus[pId] = 'onsale';
+        await setDoc(doc(db, "settings", "stock"), newStockStatus, { merge: true });
+
+        alert(`在庫を調整しました（${qty > 0 ? '+'+qty : qty}個）`);
+        
+        // Clear input
+        document.getElementById(`adj-qty-${pId}`).value = '';
+      } catch(e) {
+        console.error(e);
+        alert("エラーが発生しました。");
+      }
+    };
+
+    window.savePrices = async () => {
+      if (!auth.currentUser) return;
+      const products = getActiveProducts();
+      let newInventory = { ...inventoryData };
+      
+      products.forEach(p => {
+        const price = parseInt(document.getElementById(`price-${p.id}`).value) || 0;
+        const oldInv = newInventory[p.id] || { initial: 0, current: 0 };
+        newInventory[p.id] = { price, initial: oldInv.initial, current: oldInv.current };
+      });
+
+      try {
+        await setDoc(doc(db, "settings", "inventory_" + currentEventKey), newInventory);
+        alert("価格を保存しました！");
+      } catch (e) {
+        console.error(e);
+        alert("保存に失敗しました。");
+      }
+    };
+
+    function renderPOS() {
+      const grid = document.getElementById('pos-grid');
+      grid.innerHTML = '';
+      // レジ画面も「管理用（初期並び順）」で表示
+      const products = getActiveProducts(true);
+      
+      products.forEach(p => {
+        const inv = inventoryData[p.id] || { price: 0, current: 0 };
+        const price = inv.price;
+        const stock = inv.current;
+        
+        grid.innerHTML += `
+          <div class="pos-item" onclick="addToCart('${p.id}')">
+            <img src="${p.image}" alt="">
+            <div class="pos-item-name">${p.name.replace(/\n/g, '<br>')}</div>
+            <div class="pos-item-price">¥${price}</div>
+            <div class="pos-item-stock">残: ${stock}</div>
+          </div>
+        `;
+      });
+      updateCartUI();
+    }
+
+    window.addToCart = (id) => {
+      if (!cart[id]) cart[id] = 0;
+      const stock = (inventoryData[id] && inventoryData[id].current) || 0;
+      if (cart[id] < stock) {
+        cart[id]++;
+        updateCartUI();
+      } else {
+        alert("在庫が足りません！");
+      }
+    };
+
+    window.updateCartQty = (id, delta) => {
+      cart[id] += delta;
+      if (cart[id] <= 0) delete cart[id];
+      updateCartUI();
+    };
+
+    window.updateCartUI = () => {
+      const container = document.getElementById('cart-items');
+      container.innerHTML = '';
+      let subtotal = 0;
+      const products = MASTER_PRODUCTS;
+      
+      Object.keys(cart).forEach(id => {
+        const qty = cart[id];
+        const p = products.find(x => x.id === id);
+        const inv = inventoryData[id] || { price: 0 };
+        const price = inv.price * qty;
+        subtotal += price;
+        
+        container.innerHTML += `
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <div class="cart-item-name">${p.name.replace(/\n/g, ' ')}</div>
+              <div style="color:var(--accent);">¥${inv.price}</div>
+            </div>
+            <div class="cart-item-controls">
+              <button class="qty-btn" onclick="updateCartQty('${id}', -1)">-</button>
+              <span>${qty}</span>
+              <button class="qty-btn" onclick="updateCartQty('${id}', 1)">+</button>
+            </div>
+          </div>
+        `;
+      });
+      
+      const discount = parseInt(document.getElementById('cust-discount').value) || 0;
+      let total = subtotal - discount;
+      if (total < 0) total = 0;
+      
+      document.getElementById('cart-total-price').textContent = `¥${total.toLocaleString()}`;
+    };
+
+    window.checkout = async (method) => {
+      if (!auth.currentUser) return;
+      if (Object.keys(cart).length === 0) return alert("カートが空です");
+
+      const products = MASTER_PRODUCTS;
+      let subtotalAmount = 0;
+      const items = [];
+      let newInventory = { ...inventoryData };
+      let newStockStatus = {}; // Update settings/stock for catalog.html badges
+
+      for (const id of Object.keys(cart)) {
+        const qty = cart[id];
+        const inv = newInventory[id];
+        if (!inv || inv.current < qty) {
+          return alert("在庫エラーが発生しました。リロードしてください。");
+        }
+        const p = products.find(x => x.id === id);
+        items.push({ id, name: p.name.replace(/\n/g, ' '), qty, price: inv.price });
+        subtotalAmount += inv.price * qty;
+        
+        inv.current -= qty;
+
+        const ratio = inv.current / (inv.initial || 1);
+        if (inv.current <= 0) {
+          newStockStatus[id] = 'soldout';
+        } else if (ratio <= 0.3) {
+          newStockStatus[id] = 'few';
+        } else {
+          newStockStatus[id] = 'onsale';
+        }
+      }
+
+      const discount = parseInt(document.getElementById('cust-discount').value) || 0;
+      let totalAmount = subtotalAmount - discount;
+      if (totalAmount < 0) totalAmount = 0;
+
+      const customer = {
+        gender: document.getElementById('cust-gender').value,
+        age: document.getElementById('cust-age').value,
+        reason: document.getElementById('cust-reason').value
+      };
+      const memo = document.getElementById('cust-memo').value.trim();
+
+      const saleRecord = {
+        timestamp: new Date().toISOString(),
+        items,
+        totalAmount,
+        discount,
+        customer,
+        memo,
+        paymentMethod: method
+      };
+
+      try {
+        // 1. Add to sales (safe path settings/sales_eventId)
+        const salesDocRef = doc(db, "settings", "sales_" + currentEventKey);
+        try {
+          await updateDoc(salesDocRef, { records: arrayUnion(saleRecord) });
+        } catch(e) {
+          await setDoc(salesDocRef, { records: [saleRecord] });
+        }
+        
+        // 2. Update inventory (safe path settings/inventory_eventId)
+        await setDoc(doc(db, "settings", "inventory_" + currentEventKey), newInventory);
+        
+        // 3. Update stock badges (safe path settings/stock)
+        await setDoc(doc(db, "settings", "stock"), newStockStatus, { merge: true });
+
+        alert("決済完了しました！");
+        
+        // Reset Cart and Form
+        cart = {};
+        document.getElementById('cust-gender').value = '';
+        document.getElementById('cust-age').value = '';
+        document.getElementById('cust-reason').value = '';
+        document.getElementById('cust-discount').value = '0';
+        document.getElementById('cust-memo').value = '';
+        updateCartUI();
+      } catch(e) {
+        console.error(e);
+        alert("エラーが発生しました。");
+      }
+    };
+
+    window.resetSalesData = async () => {
+      if (!auth.currentUser) return;
+      if (!confirm(`本当に「${EVENTS[currentEventKey].label}」の売上記録をすべてリセットしますか？`)) return;
+      try {
+        await setDoc(doc(db, "settings", "sales_" + currentEventKey), { records: [] });
+        alert("売上記録をリセットしました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.resetInventoryLogData = async () => {
+      if (!auth.currentUser) return;
+      if (!confirm(`本当に「${EVENTS[currentEventKey].label}」の在庫変更履歴をすべてリセットしますか？`)) return;
+      try {
+        await setDoc(doc(db, "settings", "inventory_log_" + currentEventKey), { records: [] });
+        alert("在庫履歴をリセットしました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.resetAllInventoryData = async () => {
+      if (!auth.currentUser) return;
+      if (!confirm(`全作品の「搬入総数」と「現在庫」を0にリセットしますか？\n※価格設定は残ります。`)) return;
+      
+      try {
+        let newInv = {};
+        let newStockStatus = {};
+        const products = getActiveProducts();
+        products.forEach(p => {
+          newInv[p.id] = { price: (inventoryData[p.id]?.price || 0), initial: 0, current: 0 };
+          newStockStatus[p.id] = 'none';
+        });
+        await setDoc(doc(db, "settings", "inventory_" + currentEventKey), newInv);
+        await setDoc(doc(db, "settings", "stock"), newStockStatus, { merge: true });
+        alert("全作品の在庫をリセットしました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.resetProductInventory = async (pId) => {
+      if (!auth.currentUser) return;
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      const pName = allMaster.find(x => x.id === pId)?.name || pId;
+      if (!confirm(`「${pName.replace(/\n/g, ' ')}」の在庫数を0にリセットしますか？`)) return;
+
+      try {
+        const newInventory = { ...inventoryData };
+        newInventory[pId] = { price: (inventoryData[pId]?.price || 0), initial: 0, current: 0 };
+        
+        await setDoc(doc(db, "settings", "inventory_" + currentEventKey), newInventory);
+        await setDoc(doc(db, "settings", "stock"), { [pId]: 'none' }, { merge: true });
+        alert("在庫をリセットしました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.resetEventData = async () => {
+      // (Keep existing for backward compatibility if they have the link, 
+      // but the buttons are now more granular)
+      if (!auth.currentUser) return;
+      if (!confirm("すべてリセットしますか？")) return;
+      await resetSalesData();
+      await resetInventoryLogData();
+      await resetAllInventoryData();
+    };
+
+    // --- Selection & Sorting Logic ---
+    let selectionSortMode = false;
+    window.toggleSelectionSortMode = () => {
+      selectionSortMode = !selectionSortMode;
+      document.getElementById('selection-mode-btn').textContent = selectionSortMode ? "管理用（作品選択）モードへ" : "お品書き用（並べ替え）モードへ";
+      document.getElementById('selection-mode-btn').style.background = selectionSortMode ? "rgba(0,210,255,0.2)" : "rgba(255,255,255,0.05)";
+      document.getElementById('selection-mode-btn').style.borderColor = selectionSortMode ? "var(--accent)" : "rgba(255,255,255,0.2)";
+      renderSelection();
+    };
+
+    function renderSelection() {
+      const list = document.getElementById('selection-list');
+      list.innerHTML = '';
+      
+      const allEvents = window.getAllEvents(window.eventConfigData);
+      let selectedIds = window.eventProductsData[currentEventKey];
+      if (!selectedIds) {
+        selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+      }
+      
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      
+      let displayItems = [];
+      if (selectionSortMode) {
+        // お品書き用：選択済みのアイテムのみを、現在の並び順で表示
+        displayItems = selectedIds
+          .map(id => allMaster.find(p => p.id === id))
+          .filter(p => p !== undefined);
+        
+        list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
+      } else {
+        // 管理用：全アイテムをデフォルトの並び順で表示
+        displayItems = allMaster;
+        list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
+      }
+
+      displayItems.forEach(p => {
+        const isChecked = selectedIds.includes(p.id);
+        const imageHtml = p.isDev 
+          ? (p.image ? `<img src="${p.image}" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; opacity:${isChecked ? 1 : 0.4};">` : `<img src="images/dev_placeholder.gif" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; opacity:${isChecked ? 1 : 0.4}; border:1px dashed rgba(255,255,255,0.2);">`)
+          : `<img src="${p.image}" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; opacity:${isChecked ? 1 : 0.4};">`;
+
+        const statusObj = p.isDev ? window.DEV_STATUSES[parseInt(p.status) || 0] : null;
+        const statusBadge = statusObj ? `
+          <div style="position:absolute; top:8px; left:44px; background:rgba(0,0,0,0.8); color:var(--accent); font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--accent); font-weight:bold; backdrop-filter:blur(4px);">
+            ${statusObj.label}
+          </div>
+        ` : '';
+
+        const devControls = p.isDev ? `
+          <div style="position:absolute; bottom:8px; left:8px; display:flex; gap:5px;">
+            <div onclick="event.stopPropagation(); openDevProductModal('${p.id}')" style="background:var(--accent); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="進捗を更新">✨</div>
+            <div onclick="event.stopPropagation(); deleteDevProduct('${p.id}')" style="background:rgba(255,0,0,0.3); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white;" title="削除">🗑️</div>
+          </div>
+        ` : '';
+
+        const sortControls = (isChecked && selectionSortMode) ? `
+          <div style="position:absolute; top:50%; left:8px; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.6); padding:4px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+            <div onclick="event.stopPropagation(); moveProduct('${p.id}', 'up')" style="background:var(--accent); border-radius:4px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:white; font-weight:bold;">▲</div>
+            <div onclick="event.stopPropagation(); moveProduct('${p.id}', 'down')" style="background:var(--accent); border-radius:4px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:white; font-weight:bold;">▼</div>
+          </div>
+        ` : '';
+
+        const cardPadding = selectionSortMode ? '15px' : '10px';
+
+        const isPrintSelected = printSelection.includes(p.id);
+
+        list.innerHTML += `
+          <div style="background:var(--panel-bg); border:2px solid ${isChecked ? 'var(--accent)' : 'var(--border)'}; border-radius:12px; padding:${cardPadding}; cursor:pointer; position:relative; transition: all 0.2s;" onclick="toggleSelection('${p.id}')">
+            <div style="position:relative;">
+              ${imageHtml}
+              ${statusBadge}
+              <input type="checkbox" ${isChecked ? 'checked' : ''} style="position:absolute; top:8px; right:8px; width:22px; height:22px; accent-color:var(--accent);" title="イベントに出品する">
+              
+              <!-- 印刷用選択チェックボックス -->
+              <div onclick="event.stopPropagation(); togglePrintSelection('${p.id}')" 
+                   style="position:absolute; bottom:8px; right:8px; background:${isPrintSelected ? '#00d2ff' : 'rgba(0,0,0,0.6)'}; 
+                          border-radius:6px; padding:4px 8px; display:flex; align-items:center; gap:4px; font-size:12px; 
+                          cursor:pointer; color:white; border:1px solid ${isPrintSelected ? '#00d2ff' : 'rgba(255,255,255,0.3)'}; 
+                          box-shadow: 0 2px 4px rgba(0,0,0,0.3);" 
+                   title="一括印刷に含める">
+                <input type="checkbox" ${isPrintSelected ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer; pointer-events:none;">
+                🖨️
+              </div>
+
+              <div onclick="event.stopPropagation(); openPrintTileModal('${p.id}')" style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.6); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white; border:1px solid rgba(255,255,255,0.2);" title="この作品を単独で印刷">🔍</div>
+              ${devControls}
+              ${sortControls}
+            </div>
+            <div style="font-size:${selectionSortMode ? '14px' : '12px'}; margin-top:10px; font-weight:${selectionSortMode ? 'bold' : 'normal'}; height:36px; overflow:hidden; color:${isChecked ? 'white' : 'rgba(255,255,255,0.4)'}">${p.isDev ? '❓ ' : ''}${p.name.replace(/\n/g, ' ')}</div>
+            ${selectionSortMode && isChecked ? `<div style="font-size:10px; color:var(--accent); margin-top:4px;">並べ替え有効</div>` : ''}
+          </div>
+        `;
+      });
+
+      // Deadline Logic
+      const evConfig = allEvents[currentEventKey];
+      const alertBox = document.getElementById('deadline-alert-container');
+      const infoBox = document.getElementById('schedule-info-container');
+      
+      if (evConfig && evConfig.date) {
+        infoBox.style.display = 'flex';
+        document.getElementById('schedule-date-text').textContent = evConfig.date;
+        
+        const eventDate = new Date(evConfig.date);
+        const today = new Date();
+        const diffTime = eventDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 0) {
+          document.getElementById('schedule-countdown-text').textContent = `開催まで あと ${diffDays} 日`;
+        } else if (diffDays === 0) {
+          document.getElementById('schedule-countdown-text').textContent = `🎉 本日開催！`;
+        } else {
+          document.getElementById('schedule-countdown-text').textContent = `終了しました`;
+        }
+
+        // 1 month before logic
+        const oneMonthBefore = new Date(eventDate);
+        oneMonthBefore.setMonth(oneMonthBefore.getMonth() - 1);
+        const deadlineStr = `${oneMonthBefore.getFullYear()}/${String(oneMonthBefore.getMonth()+1).padStart(2,'0')}/${String(oneMonthBefore.getDate()).padStart(2,'0')}`;
+        
+        if (selectedIds.length === 0 && diffDays > 0) {
+          alertBox.style.display = 'block';
+          if (today >= oneMonthBefore) {
+            // Past deadline
+            alertBox.style.background = 'rgba(255,60,60,0.1)';
+            alertBox.style.borderLeft = '4px solid var(--danger)';
+            document.getElementById('deadline-info-text').innerHTML = `
+              <div style="font-weight:bold; color:var(--danger); margin-bottom:4px; font-size:16px;">
+                🚨 ${deadlineStr} までに出品登録して！！ (期限過ぎてます)
+              </div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">※登録しないと在庫設定などに進めません</div>
+            `;
+          } else {
+            // Before deadline
+            alertBox.style.background = 'rgba(255,165,0,0.1)';
+            alertBox.style.borderLeft = '4px solid orange';
+            document.getElementById('deadline-info-text').innerHTML = `
+              <div style="font-weight:bold; color:orange; margin-bottom:4px; font-size:16px;">
+                ⚠️ ${deadlineStr} までに出品登録して！！
+              </div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">※登録しないと在庫設定などに進めません</div>
+            `;
+          }
+        } else {
+          alertBox.style.display = 'none';
+        }
+      } else {
+        infoBox.style.display = 'none';
+        alertBox.style.display = 'none';
+      }
+    }
+
+    window.toggleSelection = (id) => {
+      const allEvents = window.getAllEvents(eventConfigData);
+      let selectedIds = eventProductsData[currentEventKey];
+      if (!selectedIds) {
+        selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+      } else {
+        selectedIds = [...selectedIds];
+      }
+      
+      const index = selectedIds.indexOf(id);
+      if (index === -1) selectedIds.push(id);
+      else selectedIds.splice(index, 1);
+      
+      eventProductsData[currentEventKey] = selectedIds;
+      renderSelection();
+    };
+
+    window.saveSelectedProducts = async () => {
+      if (!auth.currentUser) return;
+      try {
+        await setDoc(doc(db, "settings", "event_products"), eventProductsData, { merge: true });
+        alert("出品作品の選択内容を保存しました。");
+        renderAll();
+      } catch(e) { console.error(e); alert("保存に失敗しました。"); }
+    };
+
+    window.updateEventVisibility = async (status) => {
+      if (!auth.currentUser) return;
+      try {
+        const config = { ...eventConfigData };
+        // Ensure we preserve existing label and date
+        config[currentEventKey] = { ...(config[currentEventKey] || {}), status };
+        await setDoc(doc(db, "settings", "event_config"), config, { merge: true });
+      } catch(e) { console.error(e); }
+    };
+
+    // New Event Modal Logic
+    window.openNewEventModal = () => {
+      document.getElementById('new-event-id').value = '';
+      document.getElementById('new-event-name').value = '';
+      document.getElementById('new-event-date').value = '';
+      document.getElementById('new-event-modal').style.display = 'flex';
+    };
+
+    document.getElementById('new-event-save-btn').addEventListener('click', async () => {
+      if (!auth.currentUser) return;
+      const idInput = document.getElementById('new-event-id').value.trim();
+      const nameInput = document.getElementById('new-event-name').value.trim();
+      const dateInput = document.getElementById('new-event-date').value;
+
+      if (!idInput || !nameInput) {
+        alert("管理用IDと表示名は必須です。");
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(idInput)) {
+        alert("管理用IDは半角英数字とアンダースコアのみ使用できます。");
+        return;
+      }
+
+      const allEvents = window.getAllEvents(eventConfigData);
+      if (allEvents[idInput]) {
+        alert("そのIDは既に使用されています。別のIDを指定してください。");
+        return;
+      }
+
+      try {
+        const config = { ...eventConfigData };
+        config[idInput] = { label: nameInput, status: 'hidden', date: dateInput || null };
+        await setDoc(doc(db, "settings", "event_config"), config, { merge: true });
+        
+        document.getElementById('new-event-modal').style.display = 'none';
+        alert("新規イベントを追加しました。");
+        switchEvent(idInput);
+      } catch(e) {
+        console.error(e);
+        alert("追加に失敗しました。");
+      }
+    });
+
+    // Dev Product Modal Logic
+    const DEV_STATUSES = [
+      { label: "💭 発掘中", desc: "アイデア・構想段階" },
+      { label: "🛠 開発中", desc: "モデリング・試作段階" },
+      { label: "🔧 調整中", desc: "修正・改善・検証段階" },
+      { label: "✨ 完成", desc: "開発成功・完成版確定" },
+      { label: "📦 販売準備中", desc: "量産・出品準備" },
+      { label: "⏸🗿 封印中", desc: "一時中断・再検討中" },
+      { label: "🚫🗿 封印作品", desc: "開発終了・没作品" }
+    ];
+
+    window.updateDevStatusLabel = (val) => {
+      const s = window.DEV_STATUSES[parseInt(val)];
+      document.getElementById('status-label-main').textContent = s.label;
+      document.getElementById('status-label-sub').textContent = s.desc;
+    };
+
+    window.openDevProductModal = (id = null) => {
+      if (id) {
+        // Edit mode
+        const p = window.customProductsData[id];
+        document.getElementById('dev-product-name').value = p.name;
+        document.getElementById('dev-product-status').value = p.status || 0;
+        updateDevStatusLabel(p.status || 0);
+        window.currentEditingDevId = id;
+      } else {
+        // New mode
+        document.getElementById('dev-product-name').value = '';
+        document.getElementById('dev-product-status').value = 0;
+        updateDevStatusLabel(0);
+        window.currentEditingDevId = null;
+      }
+      document.getElementById('dev-product-modal').style.display = 'flex';
+    };
+
+    document.getElementById('dev-product-save-btn').addEventListener('click', async () => {
+      if (!auth.currentUser) return;
+      const name = document.getElementById('dev-product-name').value.trim();
+      const statusInput = document.getElementById('dev-product-status');
+      const status = parseInt(statusInput.value);
+      if (!name) { alert("仮名称を入力してください"); return; }
+      
+      try {
+        console.log("Saving dev product...", { id: window.currentEditingDevId, name, status });
+        const newData = { ...window.customProductsData };
+        const id = window.currentEditingDevId || ("dev_" + Date.now());
+        
+        newData[id] = { 
+          ...newData[id],
+          name: name, 
+          status: status,
+          isDev: true, 
+          updatedAt: Date.now() 
+        };
+        if (!window.currentEditingDevId) newData[id].createdAt = Date.now();
+
+        await setDoc(doc(db, "settings", "custom_products"), newData);
+        console.log("Successfully saved to Firestore.");
+        
+        if (!window.currentEditingDevId) {
+          // Auto-check it for current event if new
+          let selectedIds = window.eventProductsData[currentEventKey];
+          if (!selectedIds) {
+            const allEvents = window.getAllEvents(window.eventConfigData);
+            selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+          } else {
+            selectedIds = [...selectedIds];
+          }
+          selectedIds.push(id);
+          await setDoc(doc(db, "settings", "event_products"), { [currentEventKey]: selectedIds }, { merge: true });
+        }
+        
+        document.getElementById('dev-product-modal').style.display = 'none';
+        alert("開発状況を更新しました！");
+      } catch(e) { 
+        console.error("Save Error:", e);
+        alert("保存に失敗しました: " + e.message); 
+      }
+    });
+
+    window.editDevProduct = async (id) => {
+      if (!auth.currentUser) return;
+      const currentName = window.customProductsData[id]?.name || "";
+      const newName = prompt("作品の名称を変更します:", currentName);
+      if (newName === null || newName.trim() === "" || newName.trim() === currentName) return;
+      
+      try {
+        const newData = { ...window.customProductsData };
+        newData[id] = { ...newData[id], name: newName.trim() };
+        await setDoc(doc(db, "settings", "custom_products"), newData);
+        alert("名称を変更しました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.deleteDevProduct = async (id) => {
+      if (!auth.currentUser) return;
+      const currentName = window.customProductsData[id]?.name || "";
+      if (!confirm(`「${currentName}」を削除しますか？\n（すべてのお品書きから削除されます）`)) return;
+      
+      try {
+        // Remove from window.customProductsData
+        const newData = { ...window.customProductsData };
+        delete newData[id];
+        await setDoc(doc(db, "settings", "custom_products"), newData);
+        
+        // Remove from all event selections
+        const newEventProducts = { ...eventProductsData };
+        let modified = false;
+        Object.keys(newEventProducts).forEach(evKey => {
+          if (Array.isArray(newEventProducts[evKey]) && newEventProducts[evKey].includes(id)) {
+            newEventProducts[evKey] = newEventProducts[evKey].filter(pId => pId !== id);
+            modified = true;
+          }
+        });
+        if (modified) {
+          await setDoc(doc(db, "settings", "event_products"), newEventProducts);
+        }
+        
+        alert("削除しました。");
+      } catch(e) { console.error(e); }
+    };
+
+    window.togglePrintSelection = (id) => {
+      const index = printSelection.indexOf(id);
+      if (index === -1) printSelection.push(id);
+      else printSelection.splice(index, 1);
+      renderSelection();
+    };
+
+    window.generateBulkTilePrint = () => {
+      if (printSelection.length === 0) return alert("印刷したい作品の右下にある「🖨️チェック」を入れてください。");
+
+      const count = prompt("A4用紙1枚につき各作品を何枚並べますか？\n(例: 2, 6, 12, 20, 24)", "12") || "12";
+      
+      const allMaster = [...MASTER_PRODUCTS, ...Object.values(window.customProductsData)];
+      const selectedProducts = allMaster.filter(p => printSelection.includes(p.id));
+      const imgUrls = selectedProducts.map(p => encodeURIComponent(p.image));
+
+      if (imgUrls.length === 0) return alert("画像が見つかりません。");
+
+      const url = `print_tile.html?imgs=${imgUrls.join(',')}&count=${count}&name=一括出力`;
+      window.open(url, '_blank');
+    };
+
+    window.moveProduct = (id, direction) => {
+      let selectedIds = eventProductsData[currentEventKey];
+      if (!selectedIds) {
+        const allEvents = window.getAllEvents(eventConfigData);
+        selectedIds = (allEvents[currentEventKey]?.products || []).map(p => p.id);
+      } else {
+        selectedIds = [...selectedIds];
+      }
+      
+      const index = selectedIds.indexOf(id);
+      if (index === -1) return;
+      
+      if (direction === 'up' && index > 0) {
+        [selectedIds[index], selectedIds[index - 1]] = [selectedIds[index - 1], selectedIds[index]];
+      } else if (direction === 'down' && index < selectedIds.length - 1) {
+        [selectedIds[index], selectedIds[index + 1]] = [selectedIds[index + 1], selectedIds[index]];
+      }
+      
+      eventProductsData[currentEventKey] = selectedIds;
+      renderSelection();
+    };
+
+    // --- Tile Print Logic ---
+    let currentPrintProductId = null;
+    let currentPrintCount = 12;
+
+    window.openPrintTileModal = (id) => {
+      currentPrintProductId = id;
+      document.getElementById('print-tile-modal').style.display = 'flex';
+    };
+
+    window.closePrintTileModal = () => {
+      document.getElementById('print-tile-modal').style.display = 'none';
+    };
+
+    window.selectPrintCount = (count) => {
+      currentPrintCount = count;
+      const options = document.querySelectorAll('.print-option');
+      options.forEach(opt => {
+        if (opt.textContent === count + '枚') {
+          opt.style.background = 'var(--accent)';
+          opt.style.color = 'white';
+        } else {
+          opt.style.background = 'rgba(255,255,255,0.05)';
+          opt.style.color = 'inherit';
+        }
+      });
+    };
+
+    window.generateTiledPrint = () => {
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      const p = allMaster.find(x => x.id === currentPrintProductId);
+      if (!p) return;
+
+      const count = currentPrintCount;
+      const imgUrl = encodeURIComponent(p.image);
+      const name = encodeURIComponent(p.name);
+      
+      const printUrl = `print_tile.html?img=${imgUrl}&count=${count}&name=${name}`;
+      window.open(printUrl, '_blank');
+      
+      closePrintTileModal();
+    };
+  </script>
+
+  <!-- Print Tile Modal -->
+  <div id="print-tile-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;">
+    <div class="modal-content" style="background:var(--panel-bg); padding:30px; border-radius:15px; width:90%; max-width:400px; border:1px solid var(--border);">
+      <h3 style="margin-bottom:15px; color:var(--accent);">🖨️ タイル印刷（A4）</h3>
+      <p style="font-size:13px; opacity:0.8;">A4用紙に隙間なく敷き詰めます。<br>枚数を選択してください。</p>
+      
+      <div class="print-option-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0;">
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(1)">1枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(2)">2枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(4)">4枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(6)">6枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(8)">8枚</div>
+        <div class="print-option active" style="background:var(--accent); color:white; border:1px solid var(--accent); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(12)">12枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(16)">16枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(20)">20枚</div>
+        <div class="print-option" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:8px; cursor:pointer;" onclick="selectPrintCount(24)">24枚</div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn" style="flex:1; background:none; border:1px solid var(--border); color:white;" onclick="closePrintTileModal()">キャンセル</button>
+        <button class="btn btn-primary" style="flex:2;" onclick="generateTiledPrint()">PDF生成・印刷</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
