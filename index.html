@@ -69,10 +69,7 @@
             font-size: 24px;
             font-weight: 700;
             color: var(--accent-color);
-            display: inline-block;
-            min-width: 60px; /* 数字エリアの幅を確保 */
-            text-align: right;
-            font-family: 'DotGothic16', sans-serif;
+            display: block;
         }
 
         .best-label {
@@ -87,21 +84,7 @@
             font-size: 14px;
             font-weight: 700;
             color: #FFD700;
-            display: flex;
-            justify-content: flex-end;
-            align-items: baseline;
-            gap: 5px;
-        }
-
-        .score-name-tag {
-            font-size: 10px;
-            color: rgba(255,255,255,0.7);
-            font-weight: normal;
-            font-family: 'Outfit', sans-serif;
-            max-width: 80px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            display: block;
         }
 
         #controls {
@@ -400,9 +383,9 @@
         <div id="ui-text">← → MOVE / AVOID ENEMIES</div>
     </div>
     <div id="score-container">
-        <span class="score-label">歴代最高</span>
-        <span id="global-high-score-val" class="score-val" style="font-size:14px; margin-bottom:4px; display:flex; justify-content:flex-end;">0</span>
-        <span class="best-label">本日のベスト</span>
+        <span class="score-label">Score</span>
+        <span id="current-score-val" class="score-val">0</span>
+        <span class="best-label">Today's Best</span>
         <span id="today-best-val" class="best-val">0</span>
     </div>
 
@@ -419,13 +402,6 @@
                     <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">ブースNo. M-267</div>
                     <div style="font-size: clamp(14px, 4vw, 18px);">ブース名 Kanazawa Moataro</div>
                 </div>
-                
-                <!-- 本日の最高スコア表示 -->
-                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(255,215,0,0.3); padding: 12px; border-radius: 15px; margin-top: 10px; min-width: 200px; text-align:center;">
-                    <div style="color: #FFD700; font-size: 12px; margin-bottom: 4px; font-family: 'Outfit', sans-serif;">本日のベスト</div>
-                    <div id="start-today-best-val" style="color: #fff; font-size: 24px; font-weight: bold; font-family: 'DotGothic16', sans-serif;">0</div>
-                </div>
-            </div>
                 
                 <!-- MAPボタン & お品書きボタン（横並び） -->
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
@@ -589,8 +565,6 @@
       // 外部から参照できるように初期化
       window.todayGlobalBestScore = 0;
       window.globalHighScore = 0;
-      window.isGlobalDataLoaded = false;
-      window.isTodayDataLoaded = false;
 
       // --- 統計収集機能 ---
 
@@ -630,19 +604,13 @@
       const highScoreRef = ref(db, 'global_stats/high_score');
       onValue(highScoreRef, (snapshot) => {
         const data = snapshot.val() || { score: 0, name: "---" };
+        // data がオブジェクトでない（旧データの）場合は互換性を保つ
         const scoreVal = typeof data === 'object' ? data.score : data;
         const nameVal = typeof data === 'object' ? data.name : "---";
         
         window.globalHighScore = scoreVal;
-        window.isGlobalDataLoaded = true;
         const display = document.getElementById('global-high-score-val');
-        if (display) {
-          display.style.display = "flex";
-          display.style.justifyContent = "center";
-          display.style.alignItems = "baseline";
-          display.style.gap = "4px";
-          display.innerHTML = `<span style="font-family:'DotGothic16'; font-size:20px;">${scoreVal}</span> <span class="score-name-tag">（${nameVal}）</span>`;
-        }
+        if (display) display.innerHTML = `${scoreVal} <span style="font-size:12px; color:rgba(255,255,255,0.7); ml-1">(${nameVal})</span>`;
       });
 
       // 本日のベスト記録の監視
@@ -654,63 +622,16 @@
         const nameVal = typeof data === 'object' ? data.name : "---";
         
         window.todayGlobalBestScore = scoreVal;
-        window.isTodayDataLoaded = true;
         
         // 即座に全要素を更新
         const display = document.getElementById('today-best-val');
         const startDisplay = document.getElementById('start-today-best-val');
-        
-        if (display) {
-          display.innerHTML = `<span style="font-family:'DotGothic16'; min-width:40px; text-align:right;">${scoreVal}</span><span class="score-name-tag">（${nameVal}）</span>`;
-        }
-        if (startDisplay) {
-          startDisplay.style.display = "flex";
-          startDisplay.style.justifyContent = "center";
-          startDisplay.style.alignItems = "baseline";
-          startDisplay.style.gap = "4px";
-          startDisplay.innerHTML = `<span style="font-family:'DotGothic16'; font-size:20px;">${scoreVal}</span> <span class="score-name-tag">（${nameVal}）</span>`;
-        }
+        if (display) display.innerHTML = `${scoreVal} <span style="font-size:10px; color:rgba(255,255,255,0.7);">(${nameVal})</span>`;
+        if (startDisplay) startDisplay.innerHTML = `${scoreVal} <span style="font-size:12px; color:rgba(255,255,255,0.7);">(${nameVal})</span>`;
 
         // main.js側の関数があれば呼び出す
         if (window.updateBestDisplay) window.updateBestDisplay();
       });
-
-      // --- 自動復旧（リペア）ロジック ---
-      const repairStats = async () => {
-        console.log("Starting Data Recovery...");
-        const statsRef = ref(db, 'stats');
-        const snap = await get(statsRef);
-        if (!snap.exists()) return;
-        
-        const allData = snap.val();
-        let trueMaxGlobal = 0;
-        let trueMaxToday = 0;
-        const todayStr = getTodayStr();
-        
-        Object.keys(allData).forEach(dateKey => {
-          const dayData = allData[dateKey];
-          if (dayData.scores) {
-            Object.values(dayData.scores).forEach(s => {
-              if (s.score > trueMaxGlobal) trueMaxGlobal = s.score;
-              if (dateKey === todayStr && s.score > trueMaxToday) trueMaxToday = s.score;
-            });
-          }
-        });
-        
-        console.log("True Max - Global:", trueMaxGlobal, "Today:", trueMaxToday);
-        
-        if (trueMaxGlobal > window.globalHighScore) {
-          console.log("Restoring Global High Score...");
-          window.saveGlobalHighScore(trueMaxGlobal, "復旧データ");
-        }
-        if (trueMaxToday > window.todayGlobalBestScore) {
-          console.log("Restoring Today High Score...");
-          window.saveTodayHighScore(trueMaxToday, "復旧データ");
-        }
-      };
-      
-      // 歴代記録の読み込みが一段落したら復旧チェック
-      setTimeout(repairStats, 3000);
     </script>
 
     <script type="importmap">
@@ -721,7 +642,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=2"></script>
+    <script type="module" src="./main.js"></script>
 </body>
 
 </html>

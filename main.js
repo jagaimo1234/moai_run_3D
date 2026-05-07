@@ -196,8 +196,12 @@ let speed = 0.2; // 初速
 let score = 0; // スコア
 
 function updateBestDisplay() {
-  // 表示の更新は index.html の Firebase onValue 監視側に一本化するため、
-  // ここでは変数の同期確認のみを行い、DOM操作は行わないようにします。
+  const display = document.getElementById('today-best-val');
+  const startDisplay = document.getElementById('start-today-best-val');
+  // window.todayGlobalBestScore は index.html の Firebase監視で随時更新される
+  const best = window.todayGlobalBestScore || 0;
+  if (display) display.innerText = best;
+  if (startDisplay) startDisplay.innerText = best;
 }
 window.updateBestDisplay = updateBestDisplay;
 
@@ -298,9 +302,9 @@ function animate() {
       // 全スコアの履歴を保存（統計用）
       if (window.logScore) window.logScore(score);
 
-      // 記録更新チェック（データ読み込み完了時のみ実行）
-      const isGlobalUpdate = window.isGlobalDataLoaded && score > (window.globalHighScore || 0);
-      const isTodayUpdate = window.isTodayDataLoaded && score > (window.todayGlobalBestScore || 0);
+      // 記録更新チェック
+      const isGlobalUpdate = score > (window.globalHighScore || 0);
+      const isTodayUpdate = score > (window.todayGlobalBestScore || 0);
 
       if ((isGlobalUpdate || isTodayUpdate) && window.showNameInput) {
         // 名前入力画面を表示
@@ -327,12 +331,6 @@ function animate() {
                 <div style="font-size: clamp(16px, 4.5vw, 22px); margin-bottom: 4px;">デザインフェスタvol.63</div>
                 <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">ブースNo. M-267</div>
                 <div style="font-size: clamp(14px, 4vw, 18px);">ブース名 Kanazawa Moataro</div>
-            </div>
-
-            <!-- 本日の最高スコア表示 -->
-            <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(255,215,0,0.3); padding: 12px; border-radius: 15px; margin-top: 10px; min-width: 200px; text-align:center;">
-                <div style="color: #FFD700; font-size: 12px; margin-bottom: 4px; font-family: 'Outfit', sans-serif;">本日のベスト</div>
-                <div id="start-today-best-val" style="color: #fff; font-size: 24px; font-weight: bold; font-family: 'DotGothic16', sans-serif;">0</div>
             </div>
             
             <!-- MAPボタン & お品書きボタン（横並び） -->
