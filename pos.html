@@ -880,13 +880,20 @@
         sortedDates.forEach((date, i) => {
           const d = statsData[date];
           const scores = d.scores ? Object.values(d.scores).map(s => s.score) : [];
-          const max = scores.length > 0 ? Math.max(...scores) : 0;
+          
+          // highScoreノードから名前とスコアを取得 (互換性維持)
+          const hData = d.highScore || { score: 0, name: "---" };
+          const maxVal = typeof hData === 'object' ? hData.score : (scores.length > 0 ? Math.max(...scores) : 0);
+          const nameVal = typeof hData === 'object' ? hData.name : "---";
+          
           const avg = scores.length > 0 ? Math.round(scores.reduce((a,b) => a+b, 0) / scores.length) : 0;
           
           if (date === today) {
             if(document.getElementById('stats-today-players')) document.getElementById('stats-today-players').textContent = d.playerCount || 0;
             if(document.getElementById('stats-today-access')) document.getElementById('stats-today-access').textContent = d.accessCount || 0;
-            if(document.getElementById('stats-today-max-score')) document.getElementById('stats-today-max-score').textContent = `MAX: ${max}`;
+            if(document.getElementById('stats-today-max-score')) {
+              document.getElementById('stats-today-max-score').innerHTML = `MAX: ${maxVal} <span style="font-size:14px; opacity:0.6;">(${nameVal})</span>`;
+            }
             if(document.getElementById('stats-today-avg-score')) document.getElementById('stats-today-avg-score').textContent = `平均: ${avg}`;
           }
 
@@ -897,7 +904,9 @@
               <td style="padding:10px; font-weight:bold;">${date}</td>
               <td style="padding:10px;">${d.accessCount || 0}</td>
               <td style="padding:10px;">${d.playerCount || 0}</td>
-              <td style="padding:10px; color:var(--accent); font-weight:bold;">${max}</td>
+              <td style="padding:10px; color:var(--accent); font-weight:bold;">
+                ${maxVal} <span style="font-size:11px; opacity:0.6; font-weight:normal;">(${nameVal})</span>
+              </td>
               <td style="padding:10px; opacity:0.8;">${avg}</td>
             `;
             tbody.appendChild(tr);
