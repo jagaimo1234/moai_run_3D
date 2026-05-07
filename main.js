@@ -196,12 +196,8 @@ let speed = 0.2; // 初速
 let score = 0; // スコア
 
 function updateBestDisplay() {
-  const display = document.getElementById('today-best-val');
-  const startDisplay = document.getElementById('start-today-best-val');
-  // window.todayGlobalBestScore は index.html の Firebase監視で随時更新される
-  const best = window.todayGlobalBestScore || 0;
-  if (display) display.innerText = best;
-  if (startDisplay) startDisplay.innerText = best;
+  // 表示の更新自体は index.html の Firebase 監視側で行うため、
+  // ここでは数字での強制上書きを停止します。
 }
 window.updateBestDisplay = updateBestDisplay;
 
