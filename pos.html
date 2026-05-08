@@ -434,12 +434,14 @@
       <div class="scroll-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h2>📦 在庫・価格設定 (<span id="settings-event-name"></span>)</h2>
-          <div style="display: flex; gap: 15px; align-items: center;">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
             <label style="font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); padding:8px 12px; border-radius:8px; cursor:pointer;">
               <input type="checkbox" id="global-stock-toggle" onchange="toggleGlobalStockDisplay(this.checked)">
               お品書きへの在庫表示
             </label>
-            <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全作品の在庫を0にリセット</button>
+            <button class="btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); font-size:12px; padding:8px 12px;" onclick="applyMasterPrices()">🪄 マスター価格読込</button>
+            <button class="btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); font-size:12px; padding:8px 12px;" onclick="copyPricesFromEvent()">🔄 他イベントからコピー</button>
+            <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全在庫リセット</button>
             <button class="btn btn-primary" onclick="savePrices()">価格を保存</button>
           </div>
         </div>
@@ -1976,6 +1978,52 @@
       } else {
         diffEl.textContent = `あと ¥${diff.toLocaleString()}`;
         diffEl.style.color = "var(--text)";
+      }
+    };
+
+    // --- Price Reuse Logic ---
+    window.applyMasterPrices = function() {
+      if (!confirm("マスターデータに登録されている基本価格を、すべての入力欄に反映しますか？\n（まだ保存はされません）")) return;
+      const products = getActiveProducts(true);
+      products.forEach(p => {
+        const priceInput = document.getElementById(`price-${p.id}`);
+        if (priceInput && p.price !== undefined) {
+          priceInput.value = p.price;
+        }
+      });
+    };
+
+    window.copyPricesFromEvent = async function() {
+      const allEvents = window.getAllEvents(eventConfigData);
+      let eventNames = "コピー元のイベントIDを入力してください:\n";
+      Object.keys(allEvents).forEach(key => {
+        if(key !== currentEventKey) eventNames += `${key} (${allEvents[key].label})\n`;
+      });
+      const targetId = prompt(eventNames);
+      if (!targetId) return;
+      if (!allEvents[targetId]) return alert("無効なIDです。");
+      
+      try {
+        const snap = await getDoc(doc(db, "settings", "inventory_" + targetId));
+        if (snap.exists()) {
+          const pastData = snap.data();
+          const products = getActiveProducts(true);
+          let copied = false;
+          products.forEach(p => {
+            const priceInput = document.getElementById(`price-${p.id}`);
+            if (priceInput && pastData[p.id] && pastData[p.id].price !== undefined) {
+              priceInput.value = pastData[p.id].price;
+              copied = true;
+            }
+          });
+          if (copied) alert("価格を反映しました。「価格を保存」ボタンを押して確定してください。");
+          else alert("コピーできる価格データがありませんでした。");
+        } else {
+          alert("指定されたイベントの在庫データが見つかりませんでした。");
+        }
+      } catch(e) {
+        console.error(e);
+        alert("エラーが発生しました。");
       }
     };
   </script>
