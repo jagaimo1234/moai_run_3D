@@ -150,9 +150,10 @@
         <button class="sys-tab-btn active" onclick="switchSysTab('pos')">レジ (POS)</button>
         <button class="sys-tab-btn" onclick="switchSysTab('dashboard')">ダッシュボード</button>
         <button class="sys-tab-btn" onclick="switchSysTab('stats')">📊 統計</button>
-        <button class="sys-tab-btn" onclick="switchSysTab('settings')">在庫設定</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('settings')">📦 在庫設定</button>
         <button class="sys-tab-btn" onclick="switchSysTab('simulation')">🎯 シミュ</button>
-        <button class="sys-tab-btn" onclick="switchSysTab('selection')">出品選択</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('price-settings')">💴 金額設定</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('selection')">✅ 出品選択</button>
       </div>
       <div>
         <span id="user-email" style="font-size: 12px; opacity: 0.6; margin-right: 12px;"></span>
@@ -439,12 +440,25 @@
     <section id="settings-view" class="view-section">
       <div class="scroll-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h2>📦 在庫・価格設定 (<span id="settings-event-name"></span>)</h2>
+          <h2>📦 在庫設定 (<span id="settings-event-name"></span>)</h2>
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
             <label style="font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); padding:8px 12px; border-radius:8px; cursor:pointer;">
               <input type="checkbox" id="global-stock-toggle" onchange="toggleGlobalStockDisplay(this.checked)">
               お品書きへの在庫表示
             </label>
+            <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全在庫リセット</button>
+          </div>
+        </div>
+        <div id="settings-list"></div>
+      </div>
+    </section>
+
+    <!-- Price Settings View -->
+    <section id="price-settings-view" class="view-section">
+      <div class="scroll-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2>💴 金額設定 (<span id="price-settings-event-name"></span>)</h2>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
             <div style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); padding:4px 8px; border-radius:8px;">
               <span style="font-size:11px; opacity:0.8;">🔄 過去から価格コピー:</span>
               <select id="copy-price-event-select" class="form-select" style="font-size:11px; padding:4px; width:auto; border:none; background:transparent;">
@@ -452,11 +466,10 @@
               </select>
               <button class="btn" style="background:var(--accent); color:black; font-size:11px; padding:4px 8px; font-weight:bold; border-radius:4px;" onclick="copyPricesFromSelectedEvent()">適用</button>
             </div>
-            <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全在庫リセット</button>
             <button class="btn btn-primary" onclick="savePrices()">価格を保存</button>
           </div>
         </div>
-        <div id="settings-list"></div>
+        <div id="price-settings-list" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
     </section>
 
@@ -685,6 +698,7 @@
     function renderAll() {
       renderPOS();
       renderSettings();
+      if(window.renderPriceSettings) window.renderPriceSettings();
       renderSelection();
       if(window.renderSimulation) window.renderSimulation();
     }
@@ -737,6 +751,8 @@
       const evLabel = currentEv.label;
       document.getElementById('dash-event-name').textContent = evLabel;
       document.getElementById('settings-event-name').textContent = evLabel;
+      const priceEvName = document.getElementById('price-settings-event-name');
+      if(priceEvName) priceEvName.textContent = evLabel;
       document.getElementById('selection-event-name').textContent = evLabel + " - 出品作品の選択";
       
       updateVisibilityUI();
@@ -1007,18 +1023,6 @@
       const list = document.getElementById('settings-list');
       list.innerHTML = '';
       
-      const copySelect = document.getElementById('copy-price-event-select');
-      if (copySelect) {
-        const allEvents = window.getAllEvents(eventConfigData);
-        let optionsHtml = '<option value="">イベントを選択...</option>';
-        Object.keys(allEvents).forEach(key => {
-          if (key !== currentEventKey) {
-            optionsHtml += `<option value="${key}">${allEvents[key].label}</option>`;
-          }
-        });
-        copySelect.innerHTML = optionsHtml;
-      }
-
       // 在庫管理画面は「管理用（初期並び順）」で表示
       const products = getActiveProducts(true);
       
@@ -1069,9 +1073,7 @@
                   return `<div style="font-size:12px; color:#f1c40f; margin-top:4px; font-weight:bold;">🎯 採用シミュ目標: ${targetPrep}個 ${shortageText}</div>`;
                 })()}
               </div>
-              <div><span style="font-size:10px;display:block;">価格(¥)</span><input type="number" id="price-${p.id}" value="${inv.price}" style="width:70px;"></div>
             </div>
-            
             <div style="display:flex; gap:6px; align-items:center; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; margin-top:10px;">
               <span style="font-size:12px; color:rgba(255,255,255,0.7);">在庫調整:</span>
               <input type="number" id="adj-qty-${p.id}" placeholder="+ / -" style="width:70px; padding:6px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
@@ -2139,6 +2141,42 @@
       } catch(e) {
         console.error(e);
         alert("保存に失敗しました。");
+      }
+    };
+
+    window.renderPriceSettings = function() {
+      const list = document.getElementById('price-settings-list');
+      if(!list) return;
+      list.innerHTML = '';
+      
+      const products = getActiveProducts(true);
+      
+      products.forEach(p => {
+        const inv = inventoryData[p.id] || { price: 0 };
+        list.innerHTML += `
+          <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.2);">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <img src="${p.image}" alt="" style="width:50px; height:50px; border-radius:6px; object-fit:cover;">
+              <div style="font-weight:bold;">${p.name.replace(/\n/g, ' ')}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:14px; opacity:0.8;">¥</span>
+              <input type="number" id="price-${p.id}" value="${inv.price}" style="width:100px; padding:10px; font-size:18px; font-weight:bold; text-align:right; border-radius:6px; border:1px solid var(--accent); background:rgba(0,0,0,0.5); color:var(--accent);">
+            </div>
+          </div>
+        `;
+      });
+      
+      const copySelect = document.getElementById('copy-price-event-select');
+      if (copySelect) {
+        const allEvents = window.getAllEvents(eventConfigData);
+        let optionsHtml = '<option value="">イベントを選択...</option>';
+        Object.keys(allEvents).forEach(key => {
+          if (key !== currentEventKey) {
+            optionsHtml += `<option value="${key}">${allEvents[key].label}</option>`;
+          }
+        });
+        copySelect.innerHTML = optionsHtml;
       }
     };
   </script>
