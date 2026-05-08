@@ -412,14 +412,18 @@
       
       <!-- Fixed bottom summary -->
       <div style="position:fixed; bottom:0; left:0; width:100%; background:var(--panel-bg); padding:16px 20px; border-top:2px solid var(--accent); box-shadow:0 -5px 15px rgba(0,0,0,0.5); z-index:1000;">
-        <div style="max-width:800px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-size:12px; opacity:0.7;">現在予測売上</div>
-            <div id="sim-current-sales" style="font-size:28px; font-weight:bold; color:var(--accent);">¥0</div>
+        <div style="max-width:800px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap: 20px;">
+          <div style="flex:1;">
+            <div style="font-size:12px; opacity:0.7;">販売目標 (予測)</div>
+            <div id="sim-current-sales" style="font-size:24px; font-weight:bold; color:var(--accent);">¥0</div>
           </div>
-          <div style="text-align:right;">
+          <div style="flex:1;">
+            <div style="font-size:12px; opacity:0.7;">準備在庫総額</div>
+            <div id="sim-prep-sales" style="font-size:24px; font-weight:bold; color:#f1c40f;">¥0</div>
+          </div>
+          <div style="text-align:right; flex:1;">
             <div style="font-size:12px; opacity:0.7;">目標まで</div>
-            <div id="sim-diff-sales" style="font-size:20px; font-weight:bold;">あと ¥150,000</div>
+            <div id="sim-diff-sales" style="font-size:18px; font-weight:bold;">あと ¥150,000</div>
           </div>
         </div>
       </div>
@@ -1850,6 +1854,7 @@
 
     // --- Simulation Logic ---
     let simulationQuantities = {};
+    let preparationQuantities = {};
 
     window.renderSimulation = function() {
       const list = document.getElementById('sim-product-list');
@@ -1866,20 +1871,36 @@
         const inv = inventoryData[p.id] || { price: 0 };
         const price = inv.price;
         const qty = simulationQuantities[p.id] || 0;
+        const pQty = preparationQuantities[p.id] || 0;
         
         list.innerHTML += `
-          <div style="display:flex; align-items:center; gap:12px; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
-            <img src="${p.image}" style="width:50px; height:50px; border-radius:6px; object-fit:cover;">
-            <div style="flex:1;">
-              <div style="font-weight:bold; font-size:14px; margin-bottom:4px;">${p.name.replace(/\n/g, ' ')}</div>
-              <div style="font-size:12px; color:var(--accent);">¥${price}</div>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; width:160px;">
-              <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                <input type="range" id="sim-slider-${p.id}" min="0" max="100" value="${qty}" style="flex:1; accent-color:var(--accent);" oninput="updateSimQty('${p.id}', this.value, true)">
-                <input type="number" id="sim-qty-${p.id}" value="${qty}" min="0" style="width:50px; padding:4px; text-align:right; background:var(--bg); color:white; border:1px solid var(--border); border-radius:4px;" oninput="updateSimQty('${p.id}', this.value, false)">
+          <div style="display:flex; flex-direction:column; gap:12px; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <img src="${p.image}" style="width:50px; height:50px; border-radius:6px; object-fit:cover;">
+              <div style="flex:1;">
+                <div style="font-weight:bold; font-size:14px; margin-bottom:4px;">${p.name.replace(/\n/g, ' ')}</div>
+                <div style="font-size:12px; color:var(--accent);">¥${price}</div>
               </div>
-              <div style="font-size:12px; font-weight:bold;">小計: <span id="sim-subtotal-${p.id}">¥${(price * qty).toLocaleString()}</span></div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+              <!-- 予測 (シミュ) -->
+              <div style="flex:1; min-width:200px; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">
+                <div style="font-size:11px; opacity:0.7; margin-bottom:6px;">🎯 目標販売数</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="range" id="sim-slider-${p.id}" min="0" max="100" value="${qty}" style="flex:1; accent-color:var(--accent);" oninput="updateSimQty('${p.id}', this.value, true)">
+                  <input type="number" id="sim-qty-${p.id}" value="${qty}" min="0" style="width:50px; padding:4px; text-align:right; background:var(--bg); color:white; border:1px solid var(--border); border-radius:4px;" oninput="updateSimQty('${p.id}', this.value, false)">
+                </div>
+                <div style="font-size:12px; font-weight:bold; text-align:right; margin-top:6px; color:var(--accent);">小計: <span id="sim-subtotal-${p.id}">¥${(price * qty).toLocaleString()}</span></div>
+              </div>
+              <!-- 準備数 -->
+              <div style="flex:1; min-width:200px; background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); padding:10px; border-radius:6px;">
+                <div style="font-size:11px; color:#f1c40f; margin-bottom:6px;">📦 制作・準備予定数</div>
+                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px;">
+                  <input type="number" id="prep-qty-${p.id}" value="${pQty}" min="0" style="width:70px; padding:6px; font-size:14px; text-align:right; background:var(--bg); color:white; border:1px solid #f1c40f; border-radius:4px;" oninput="updatePrepQty('${p.id}', this.value)">
+                  <span style="font-size:12px; opacity:0.8;">個</span>
+                </div>
+                <div style="font-size:12px; font-weight:bold; text-align:right; margin-top:6px; color:#f1c40f;">在庫価値: <span id="prep-subtotal-${p.id}">¥${(price * pQty).toLocaleString()}</span></div>
+              </div>
             </div>
           </div>
         `;
@@ -1909,21 +1930,41 @@
       updateSimulationUI();
     };
 
+    window.updatePrepQty = function(pId, val) {
+      let qty = parseInt(val) || 0;
+      if(qty < 0) qty = 0;
+      preparationQuantities[pId] = qty;
+      
+      const inv = inventoryData[pId] || { price: 0 };
+      const subtotal = inv.price * qty;
+      
+      const subEl = document.getElementById(`prep-subtotal-${pId}`);
+      if(subEl) subEl.textContent = `¥${subtotal.toLocaleString()}`;
+      
+      updateSimulationUI();
+    };
+
     window.updateSimulationUI = function() {
       const targetInput = document.getElementById('sim-target-sales');
       if(!targetInput) return;
       const target = parseInt(targetInput.value) || 0;
       
       let currentTotal = 0;
+      let prepTotal = 0;
       const products = getActiveProducts(true);
       products.forEach(p => {
         const inv = inventoryData[p.id] || { price: 0 };
         const qty = simulationQuantities[p.id] || 0;
+        const pQty = preparationQuantities[p.id] || 0;
         currentTotal += inv.price * qty;
+        prepTotal += inv.price * pQty;
       });
       
       const currentSalesEl = document.getElementById('sim-current-sales');
       if(currentSalesEl) currentSalesEl.textContent = `¥${currentTotal.toLocaleString()}`;
+      
+      const prepSalesEl = document.getElementById('sim-prep-sales');
+      if(prepSalesEl) prepSalesEl.textContent = `¥${prepTotal.toLocaleString()}`;
       
       const diffEl = document.getElementById('sim-diff-sales');
       if(!diffEl) return;
