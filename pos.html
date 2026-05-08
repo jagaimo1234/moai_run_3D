@@ -396,6 +396,7 @@
       <div class="scroll-container" style="padding-bottom: 120px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h2>🎯 売上シミュレーション (<span id="sim-event-name"></span>)</h2>
+          <button class="btn btn-primary" onclick="saveSimulationData()">💾 保存</button>
         </div>
         
         <div style="background:var(--panel-bg); padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid var(--border);">
@@ -559,6 +560,7 @@
     let unsubSales = null;
     let unsubSelection = null;
     let unsubConfig = null;
+    let unsubSimulation = null;
 
     window.switchEvent = (key) => {
       document.querySelectorAll('.event-tab').forEach(el => el.classList.remove('active'));
@@ -731,6 +733,23 @@
 
       if (unsubInventory) unsubInventory();
       if (unsubSales) unsubSales();
+      if (unsubSimulation) unsubSimulation();
+
+      unsubSimulation = onSnapshot(doc(db, "settings", "simulation_" + currentEventKey), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          simulationQuantities = data.simQty || {};
+          preparationQuantities = data.prepQty || {};
+          const targetInput = document.getElementById('sim-target-sales');
+          if (targetInput && data.target) targetInput.value = data.target;
+        } else {
+          simulationQuantities = {};
+          preparationQuantities = {};
+        }
+        if (document.getElementById('simulation-view').classList.contains('active')) {
+          renderSimulation();
+        }
+      });
 
       // Listen to stock for global toggle and manual status
       onSnapshot(doc(db, "settings", "stock"), (docSnap) => {
@@ -2028,6 +2047,23 @@
       } catch(e) {
         console.error(e);
         alert("エラーが発生しました。");
+      }
+    };
+
+    window.saveSimulationData = async function() {
+      const targetInput = document.getElementById('sim-target-sales');
+      const targetVal = targetInput ? (parseInt(targetInput.value) || 0) : 150000;
+      
+      try {
+        await setDoc(doc(db, "settings", "simulation_" + currentEventKey), {
+          target: targetVal,
+          simQty: simulationQuantities,
+          prepQty: preparationQuantities
+        });
+        alert("シミュレーションの内容を保存しました！");
+      } catch(e) {
+        console.error(e);
+        alert("保存に失敗しました。");
       }
     };
   </script>
