@@ -366,7 +366,7 @@ function animate() {
             
             <!-- MAPボタン & お品書きボタン（横並び） -->
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="event.stopPropagation(); window.open('booth_map.jpg', '_blank')" style="
+                <button onclick="event.stopPropagation(); window.open('booth_map_designfesta.jpg', '_blank')" style="
                     background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.6); color: #fff; 
                     padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px; 
                     font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
