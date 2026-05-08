@@ -439,8 +439,13 @@
               <input type="checkbox" id="global-stock-toggle" onchange="toggleGlobalStockDisplay(this.checked)">
               お品書きへの在庫表示
             </label>
-            <button class="btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); font-size:12px; padding:8px 12px;" onclick="applyMasterPrices()">🪄 マスター価格読込</button>
-            <button class="btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); font-size:12px; padding:8px 12px;" onclick="copyPricesFromEvent()">🔄 他イベントからコピー</button>
+            <div style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); padding:4px 8px; border-radius:8px;">
+              <span style="font-size:11px; opacity:0.8;">🔄 過去から価格コピー:</span>
+              <select id="copy-price-event-select" class="form-select" style="font-size:11px; padding:4px; width:auto; border:none; background:transparent;">
+                <option value="">イベントを選択...</option>
+              </select>
+              <button class="btn" style="background:var(--accent); color:black; font-size:11px; padding:4px 8px; font-weight:bold; border-radius:4px;" onclick="copyPricesFromSelectedEvent()">適用</button>
+            </div>
             <button class="btn" style="background:var(--danger); color:white; font-size:12px; padding:8px 12px;" onclick="resetAllInventoryData()">全在庫リセット</button>
             <button class="btn btn-primary" onclick="savePrices()">価格を保存</button>
           </div>
@@ -963,6 +968,19 @@
     function renderSettings() {
       const list = document.getElementById('settings-list');
       list.innerHTML = '';
+      
+      const copySelect = document.getElementById('copy-price-event-select');
+      if (copySelect) {
+        const allEvents = window.getAllEvents(eventConfigData);
+        let optionsHtml = '<option value="">イベントを選択...</option>';
+        Object.keys(allEvents).forEach(key => {
+          if (key !== currentEventKey) {
+            optionsHtml += `<option value="${key}">${allEvents[key].label}</option>`;
+          }
+        });
+        copySelect.innerHTML = optionsHtml;
+      }
+
       // 在庫管理画面は「管理用（初期並び順）」で表示
       const products = getActiveProducts(true);
       
@@ -1982,26 +2000,12 @@
     };
 
     // --- Price Reuse Logic ---
-    window.applyMasterPrices = function() {
-      if (!confirm("マスターデータに登録されている基本価格を、すべての入力欄に反映しますか？\n（まだ保存はされません）")) return;
-      const products = getActiveProducts(true);
-      products.forEach(p => {
-        const priceInput = document.getElementById(`price-${p.id}`);
-        if (priceInput && p.price !== undefined) {
-          priceInput.value = p.price;
-        }
-      });
-    };
-
-    window.copyPricesFromEvent = async function() {
-      const allEvents = window.getAllEvents(eventConfigData);
-      let eventNames = "コピー元のイベントIDを入力してください:\n";
-      Object.keys(allEvents).forEach(key => {
-        if(key !== currentEventKey) eventNames += `${key} (${allEvents[key].label})\n`;
-      });
-      const targetId = prompt(eventNames);
-      if (!targetId) return;
-      if (!allEvents[targetId]) return alert("無効なIDです。");
+    window.copyPricesFromSelectedEvent = async function() {
+      const selectEl = document.getElementById('copy-price-event-select');
+      if(!selectEl) return;
+      const targetId = selectEl.value;
+      
+      if (!targetId) return alert("コピー元のイベントを選択してください。");
       
       try {
         const snap = await getDoc(doc(db, "settings", "inventory_" + targetId));
