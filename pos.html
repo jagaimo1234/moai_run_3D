@@ -394,9 +394,14 @@
     <!-- Simulation View -->
     <section id="simulation-view" class="view-section">
       <div class="scroll-container" style="padding-bottom: 120px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h2>🎯 売上シミュレーション (<span id="sim-event-name"></span>)</h2>
-          <button class="btn btn-primary" onclick="saveSimulationData()">💾 保存</button>
+        <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:15px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <h2 style="margin:0; font-size:16px;">🎯 売上シミュ (<span id="sim-event-name"></span>)</h2>
+          <div style="flex:1;"></div>
+          <span style="font-size:12px; opacity:0.8;">パターン:</span>
+          <select id="sim-pattern-select" style="padding:6px; border-radius:4px; background:var(--bg); color:white; border:1px solid var(--border);" onchange="switchSimulationPattern(this.value)"></select>
+          <button class="btn" style="background:rgba(255,255,255,0.1); font-size:12px; padding:6px 10px;" onclick="createNewPattern()">＋新規</button>
+          <button class="btn" style="background:var(--success); color:white; font-size:12px; padding:6px 12px; font-weight:bold;" onclick="adoptSimulationPattern()">✅ 採用する</button>
+          <button class="btn btn-primary" style="font-size:12px; padding:6px 12px;" onclick="saveSimulationData()">💾 保存</button>
         </div>
         
         <div style="background:var(--panel-bg); padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid var(--border);">
@@ -561,6 +566,11 @@
     let unsubSelection = null;
     let unsubConfig = null;
     let unsubSimulation = null;
+    
+    let currentSimulationData = { activePatternId: "default", patterns: { "default": { name: "基本パターン", target: 150000, simQty: {}, prepQty: {} } } };
+    let currentPatternId = "default";
+    let simulationQuantities = {};
+    let preparationQuantities = {};
 
     window.switchEvent = (key) => {
       document.querySelectorAll('.event-tab').forEach(el => el.classList.remove('active'));
@@ -738,17 +748,26 @@
       unsubSimulation = onSnapshot(doc(db, "settings", "simulation_" + currentEventKey), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          simulationQuantities = data.simQty || {};
-          preparationQuantities = data.prepQty || {};
-          const targetInput = document.getElementById('sim-target-sales');
-          if (targetInput && data.target) targetInput.value = data.target;
+          if (data.simQty || data.prepQty || data.target) {
+            // Migrate old flat format to pattern format
+            currentSimulationData = {
+              activePatternId: "default",
+              patterns: { "default": { name: "基本パターン", target: data.target || 150000, simQty: data.simQty || {}, prepQty: data.prepQty || {} } }
+            };
+          }
+          if (data.patterns) {
+            currentSimulationData = data;
+          }
         } else {
-          simulationQuantities = {};
-          preparationQuantities = {};
+          currentSimulationData = { activePatternId: "default", patterns: { "default": { name: "基本パターン", target: 150000, simQty: {}, prepQty: {} } } };
         }
-        if (document.getElementById('simulation-view').classList.contains('active')) {
-          renderSimulation();
+        
+        if (!currentSimulationData.patterns[currentPatternId]) {
+           currentPatternId = Object.keys(currentSimulationData.patterns)[0] || "default";
         }
+        
+        loadPatternToUI(currentPatternId);
+        renderSettings(); // Re-render to show adopted quantities
       });
 
       // Listen to stock for global toggle and manual status
@@ -1040,6 +1059,15 @@
               <div class="settings-info">
                 <div class="settings-name">${p.name.replace(/\n/g, ' ')}</div>
                 <div style="font-size:14px; font-weight:bold; margin-top:4px; color:var(--accent);">搬入総数: ${inv.initial} / 現在庫: ${inv.current}</div>
+                ${(() => {
+                  const adoptedPatId = currentSimulationData?.activePatternId;
+                  if (!adoptedPatId || !currentSimulationData?.patterns[adoptedPatId]) return '';
+                  const targetPrep = currentSimulationData.patterns[adoptedPatId].prepQty[p.id] || 0;
+                  if (targetPrep === 0) return '';
+                  const shortage = Math.max(0, targetPrep - inv.initial);
+                  const shortageText = shortage > 0 ? `(あと <span style="color:var(--danger); font-weight:bold;">${shortage}</span> 個必要)` : `(✅ 準備完了)`;
+                  return `<div style="font-size:12px; color:#f1c40f; margin-top:4px; font-weight:bold;">🎯 採用シミュ目標: ${targetPrep}個 ${shortageText}</div>`;
+                })()}
               </div>
               <div><span style="font-size:10px;display:block;">価格(¥)</span><input type="number" id="price-${p.id}" value="${inv.price}" style="width:70px;"></div>
             </div>
@@ -1892,8 +1920,6 @@
     };
 
     // --- Simulation Logic ---
-    let simulationQuantities = {};
-    let preparationQuantities = {};
 
     window.renderSimulation = function() {
       const list = document.getElementById('sim-product-list');
@@ -2050,16 +2076,65 @@
       }
     };
 
-    window.saveSimulationData = async function() {
-      const targetInput = document.getElementById('sim-target-sales');
-      const targetVal = targetInput ? (parseInt(targetInput.value) || 0) : 150000;
+    window.loadPatternToUI = function(pId) {
+      currentPatternId = pId;
+      const pat = currentSimulationData.patterns[pId];
+      if (!pat) return;
+      simulationQuantities = pat.simQty || {};
+      preparationQuantities = pat.prepQty || {};
       
-      try {
-        await setDoc(doc(db, "settings", "simulation_" + currentEventKey), {
-          target: targetVal,
-          simQty: simulationQuantities,
-          prepQty: preparationQuantities
+      const targetInput = document.getElementById('sim-target-sales');
+      if (targetInput) targetInput.value = pat.target || 150000;
+      
+      const select = document.getElementById('sim-pattern-select');
+      if (select) {
+        select.innerHTML = '';
+        Object.keys(currentSimulationData.patterns).forEach(key => {
+          select.innerHTML += `<option value="${key}">${currentSimulationData.patterns[key].name} ${currentSimulationData.activePatternId === key ? '✅' : ''}</option>`;
         });
+        select.value = currentPatternId;
+      }
+      
+      if (document.getElementById('simulation-view').classList.contains('active')) {
+        renderSimulation();
+      }
+    };
+
+    window.switchSimulationPattern = function(pId) {
+      saveCurrentPatternToMemory();
+      loadPatternToUI(pId);
+    };
+
+    window.saveCurrentPatternToMemory = function() {
+      if(!currentSimulationData.patterns[currentPatternId]) return;
+      const targetInput = document.getElementById('sim-target-sales');
+      currentSimulationData.patterns[currentPatternId].target = targetInput ? (parseInt(targetInput.value)||0) : 150000;
+      currentSimulationData.patterns[currentPatternId].simQty = {...simulationQuantities};
+      currentSimulationData.patterns[currentPatternId].prepQty = {...preparationQuantities};
+    };
+
+    window.createNewPattern = function() {
+      saveCurrentPatternToMemory();
+      const name = prompt("新しいパターンの名前を入力してください:");
+      if(!name) return;
+      const newId = 'pat_' + Date.now();
+      currentSimulationData.patterns[newId] = { name: name, target: 150000, simQty: {}, prepQty: {} };
+      loadPatternToUI(newId);
+    };
+
+    window.adoptSimulationPattern = async function() {
+      saveCurrentPatternToMemory();
+      currentSimulationData.activePatternId = currentPatternId;
+      await window.saveSimulationData();
+      alert("このパターンを採用しました！\n在庫設定画面に目標準備数が反映されます。");
+      renderSettings();
+      loadPatternToUI(currentPatternId); // update select label
+    };
+
+    window.saveSimulationData = async function() {
+      saveCurrentPatternToMemory();
+      try {
+        await setDoc(doc(db, "settings", "simulation_" + currentEventKey), currentSimulationData);
         alert("シミュレーションの内容を保存しました！");
       } catch(e) {
         console.error(e);
