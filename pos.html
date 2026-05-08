@@ -150,8 +150,8 @@
         <button class="sys-tab-btn active" onclick="switchSysTab('pos')">レジ (POS)</button>
         <button class="sys-tab-btn" onclick="switchSysTab('dashboard')">ダッシュボード</button>
         <button class="sys-tab-btn" onclick="switchSysTab('stats')">📊 統計</button>
-        <button class="sys-tab-btn" onclick="switchSysTab('simulation')">🎯 シミュ</button>
         <button class="sys-tab-btn" onclick="switchSysTab('settings')">在庫設定</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('simulation')">🎯 シミュ</button>
         <button class="sys-tab-btn" onclick="switchSysTab('selection')">出品選択</button>
       </div>
       <div>
@@ -1876,7 +1876,7 @@
             </div>
             <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; width:160px;">
               <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                <input type="range" id="sim-slider-${p.id}" min="0" max="200" value="${qty}" style="flex:1; accent-color:var(--accent);" oninput="updateSimQty('${p.id}', this.value, true)">
+                <input type="range" id="sim-slider-${p.id}" min="0" max="100" value="${qty}" style="flex:1; accent-color:var(--accent);" oninput="updateSimQty('${p.id}', this.value, true)">
                 <input type="number" id="sim-qty-${p.id}" value="${qty}" min="0" style="width:50px; padding:4px; text-align:right; background:var(--bg); color:white; border:1px solid var(--border); border-radius:4px;" oninput="updateSimQty('${p.id}', this.value, false)">
               </div>
               <div style="font-size:12px; font-weight:bold;">小計: <span id="sim-subtotal-${p.id}">¥${(price * qty).toLocaleString()}</span></div>
