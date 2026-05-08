@@ -150,6 +150,7 @@
         <button class="sys-tab-btn active" onclick="switchSysTab('pos')">レジ (POS)</button>
         <button class="sys-tab-btn" onclick="switchSysTab('dashboard')">ダッシュボード</button>
         <button class="sys-tab-btn" onclick="switchSysTab('stats')">📊 統計</button>
+        <button class="sys-tab-btn" onclick="switchSysTab('simulation')">🎯 シミュ</button>
         <button class="sys-tab-btn" onclick="switchSysTab('settings')">在庫設定</button>
         <button class="sys-tab-btn" onclick="switchSysTab('selection')">出品選択</button>
       </div>
@@ -390,6 +391,40 @@
       </div>
     </div>
 
+    <!-- Simulation View -->
+    <section id="simulation-view" class="view-section">
+      <div class="scroll-container" style="padding-bottom: 120px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2>🎯 売上シミュレーション (<span id="sim-event-name"></span>)</h2>
+        </div>
+        
+        <div style="background:var(--panel-bg); padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid var(--border);">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:14px; margin-bottom:8px; display:block;">目標売上 (円)</label>
+            <input type="number" id="sim-target-sales" class="form-input" value="150000" style="font-size:24px; font-weight:bold; padding:12px; width:100%; max-width:300px; text-align:right;" oninput="updateSimulationUI()">
+          </div>
+        </div>
+
+        <div id="sim-product-list" style="display:flex; flex-direction:column; gap:15px;">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+      
+      <!-- Fixed bottom summary -->
+      <div style="position:fixed; bottom:0; left:0; width:100%; background:var(--panel-bg); padding:16px 20px; border-top:2px solid var(--accent); box-shadow:0 -5px 15px rgba(0,0,0,0.5); z-index:1000;">
+        <div style="max-width:800px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:12px; opacity:0.7;">現在予測売上</div>
+            <div id="sim-current-sales" style="font-size:28px; font-weight:bold; color:var(--accent);">¥0</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px; opacity:0.7;">目標まで</div>
+            <div id="sim-diff-sales" style="font-size:20px; font-weight:bold;">あと ¥150,000</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Settings View -->
     <section id="settings-view" class="view-section">
       <div class="scroll-container">
@@ -579,6 +614,9 @@
       if (tabId === 'stats' && window.updateStats) {
         window.updateStats();
       }
+      if (tabId === 'simulation' && window.renderSimulation) {
+        window.renderSimulation();
+      }
     };
 
     // Auth
@@ -625,6 +663,7 @@
       renderPOS();
       renderSettings();
       renderSelection();
+      if(window.renderSimulation) window.renderSimulation();
     }
 
     function updateVisibilityUI() {
@@ -1807,6 +1846,96 @@
       window.open(printUrl, '_blank');
       
       closePrintTileModal();
+    };
+
+    // --- Simulation Logic ---
+    let simulationQuantities = {};
+
+    window.renderSimulation = function() {
+      const list = document.getElementById('sim-product-list');
+      if(!list) return;
+      list.innerHTML = '';
+      
+      const allEvents = window.getAllEvents(eventConfigData);
+      const currentEv = allEvents[currentEventKey];
+      document.getElementById('sim-event-name').textContent = currentEv ? currentEv.label : "";
+      
+      const products = getActiveProducts(true);
+      
+      products.forEach(p => {
+        const inv = inventoryData[p.id] || { price: 0 };
+        const price = inv.price;
+        const qty = simulationQuantities[p.id] || 0;
+        
+        list.innerHTML += `
+          <div style="display:flex; align-items:center; gap:12px; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <img src="${p.image}" style="width:50px; height:50px; border-radius:6px; object-fit:cover;">
+            <div style="flex:1;">
+              <div style="font-weight:bold; font-size:14px; margin-bottom:4px;">${p.name.replace(/\n/g, ' ')}</div>
+              <div style="font-size:12px; color:var(--accent);">¥${price}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; width:160px;">
+              <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                <input type="range" id="sim-slider-${p.id}" min="0" max="200" value="${qty}" style="flex:1; accent-color:var(--accent);" oninput="updateSimQty('${p.id}', this.value, true)">
+                <input type="number" id="sim-qty-${p.id}" value="${qty}" min="0" style="width:50px; padding:4px; text-align:right; background:var(--bg); color:white; border:1px solid var(--border); border-radius:4px;" oninput="updateSimQty('${p.id}', this.value, false)">
+              </div>
+              <div style="font-size:12px; font-weight:bold;">小計: <span id="sim-subtotal-${p.id}">¥${(price * qty).toLocaleString()}</span></div>
+            </div>
+          </div>
+        `;
+      });
+      updateSimulationUI();
+    };
+
+    window.updateSimQty = function(pId, val, fromSlider) {
+      let qty = parseInt(val) || 0;
+      if(qty < 0) qty = 0;
+      simulationQuantities[pId] = qty;
+      
+      const inv = inventoryData[pId] || { price: 0 };
+      const subtotal = inv.price * qty;
+      
+      const subEl = document.getElementById(`sim-subtotal-${pId}`);
+      if(subEl) subEl.textContent = `¥${subtotal.toLocaleString()}`;
+      
+      if(fromSlider) {
+        const inputEl = document.getElementById(`sim-qty-${pId}`);
+        if(inputEl) inputEl.value = qty;
+      } else {
+        const sliderEl = document.getElementById(`sim-slider-${pId}`);
+        if(sliderEl) sliderEl.value = qty;
+      }
+      
+      updateSimulationUI();
+    };
+
+    window.updateSimulationUI = function() {
+      const targetInput = document.getElementById('sim-target-sales');
+      if(!targetInput) return;
+      const target = parseInt(targetInput.value) || 0;
+      
+      let currentTotal = 0;
+      const products = getActiveProducts(true);
+      products.forEach(p => {
+        const inv = inventoryData[p.id] || { price: 0 };
+        const qty = simulationQuantities[p.id] || 0;
+        currentTotal += inv.price * qty;
+      });
+      
+      const currentSalesEl = document.getElementById('sim-current-sales');
+      if(currentSalesEl) currentSalesEl.textContent = `¥${currentTotal.toLocaleString()}`;
+      
+      const diffEl = document.getElementById('sim-diff-sales');
+      if(!diffEl) return;
+      const diff = target - currentTotal;
+      
+      if(diff <= 0) {
+        diffEl.textContent = "✨ 目標達成！";
+        diffEl.style.color = "var(--success)";
+      } else {
+        diffEl.textContent = `あと ¥${diff.toLocaleString()}`;
+        diffEl.style.color = "var(--text)";
+      }
     };
   </script>
 
