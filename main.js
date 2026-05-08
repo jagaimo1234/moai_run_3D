@@ -98,6 +98,14 @@ userMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide
 });
 
+// 新しい敵: moai_shot (スコア300以上で混入)
+const moaiShotTexture = textureLoader.load('./moai_shot.png');
+const moaiShotMaterial = new THREE.MeshStandardMaterial({
+  map: moaiShotTexture,
+  transparent: true,
+  side: THREE.DoubleSide
+});
+
 // もし画像がないときに「真っ黒」になるのを防ぐため、mapが見つからない場合の色指定を変える工夫もできるが、
 // MeshStandardMaterialはmapがnull(ロード失敗)ならcolorが使われるはず。
 // ただしLoaderはデフォルトで白いテクスチャを返すわけではないので、
@@ -109,7 +117,18 @@ userMaterial = new THREE.MeshStandardMaterial({
 const yogurts = [];
 
 function spawnYogurt() {
-  const yogurt = new THREE.Mesh(userGeometry, userMaterial);
+  // スコア300以上なら10%の確率で moai_shot に差し替え
+  let material = userMaterial;
+  let isSpecial = false;
+  
+  if (score > 300 && Math.random() < 0.1) {
+    material = moaiShotMaterial;
+    isSpecial = true;
+  }
+
+  const yogurt = new THREE.Mesh(userGeometry, material);
+  yogurt.userData.isSpecial = isSpecial; // 念のため属性を持たせておく
+
   yogurt.position.set(
     (Math.random() - 0.5) * 6,
     1.2, // 地面より少し上（足元が地面に付くくらい）
