@@ -106,6 +106,14 @@ const moaiShotMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide
 });
 
+// レアな敵: happy (スコア300以上で5%の確率)
+const happyTexture = textureLoader.load('./happy.png');
+const happyMaterial = new THREE.MeshStandardMaterial({
+  map: happyTexture,
+  transparent: true,
+  side: THREE.DoubleSide
+});
+
 // もし画像がないときに「真っ黒」になるのを防ぐため、mapが見つからない場合の色指定を変える工夫もできるが、
 // MeshStandardMaterialはmapがnull(ロード失敗)ならcolorが使われるはず。
 // ただしLoaderはデフォルトで白いテクスチャを返すわけではないので、
@@ -117,13 +125,21 @@ const moaiShotMaterial = new THREE.MeshStandardMaterial({
 const yogurts = [];
 
 function spawnYogurt() {
-  // スコア300以上なら10%の確率で moai_shot に差し替え
+  // スコア300以上なら確率で特殊キャラに差し替え
   let material = userMaterial;
   let isSpecial = false;
   
-  if (score > 300 && Math.random() < 0.1) {
-    material = moaiShotMaterial;
-    isSpecial = true;
+  if (score > 300) {
+    const rand = Math.random();
+    if (rand < 0.05) {
+      // 5% の確率で happy
+      material = happyMaterial;
+      isSpecial = true;
+    } else if (rand < 0.15) {
+      // 10% の確率で moai_shot (0.05〜0.15の範囲)
+      material = moaiShotMaterial;
+      isSpecial = true;
+    }
   }
 
   const yogurt = new THREE.Mesh(userGeometry, material);
