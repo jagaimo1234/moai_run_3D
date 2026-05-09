@@ -579,6 +579,7 @@
     let unsubSelection = null;
     let unsubConfig = null;
     let unsubSimulation = null;
+    let hiddenProductsData = {};
     
     let currentSimulationData = { activePatternId: "default", patterns: { "default": { name: "基本パターン", target: 150000, simQty: {}, prepQty: {} } } };
     let currentPatternId = "default";
@@ -792,8 +793,14 @@
           stockData = docSnap.data();
           const toggleEl = document.getElementById('global-stock-toggle');
           if (toggleEl) toggleEl.checked = stockData._displayStock !== false;
-          renderSettings(); // Re-render to update dropdowns
+          renderSettings();
         }
+      });
+
+      // Listen to hidden products
+      onSnapshot(doc(db, "settings", "hidden_products"), (docSnap) => {
+        hiddenProductsData = docSnap.exists() ? docSnap.data() : {};
+        renderSettings();
       });
 
       // Listen to badges for Recommend status
@@ -1056,6 +1063,13 @@
             stockStyle = 'background:rgba(231,76,60,0.15); color:#e74c3c; border-color:#e74c3c;';
         }
 
+        // Hidden / visibility styles
+        const isHidden = hiddenProductsData[p.id] === true;
+        const hiddenStyle = isHidden
+          ? 'background:rgba(231,76,60,0.2); color:#e74c3c; border-color:#e74c3c;'
+          : 'background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.4); border-color:transparent;';
+        const hiddenLabel = isHidden ? '🔒 非公開' : '🔓 公開中';
+
         list.innerHTML += `
           <div class="settings-row" style="flex-direction:column; align-items:stretch;">
             <div style="display:flex; gap:12px; align-items:center;">
@@ -1099,6 +1113,12 @@
                 <span style="font-size:10px; opacity:0.5;">手動在庫:</span>
                 <button onclick="cycleManualStock('${p.id}')" style="font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); cursor:pointer; min-width:80px; ${stockStyle}">
                   ${stockLabel}
+                </button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:10px; opacity:0.5;">公開設定:</span>
+                <button onclick="toggleProductHidden('${p.id}')" style="font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid; cursor:pointer; min-width:80px; ${hiddenStyle}">
+                  ${hiddenLabel}
                 </button>
               </div>
               <div style="flex:1;"></div>
@@ -2138,6 +2158,16 @@
       try {
         await setDoc(doc(db, "settings", "simulation_" + currentEventKey), currentSimulationData);
         alert("シミュレーションの内容を保存しました！");
+      } catch(e) {
+        console.error(e);
+        alert("保存に失敗しました。");
+      }
+    };
+
+    window.toggleProductHidden = async function(pId) {
+      hiddenProductsData[pId] = !hiddenProductsData[pId];
+      try {
+        await setDoc(doc(db, "settings", "hidden_products"), hiddenProductsData);
       } catch(e) {
         console.error(e);
         alert("保存に失敗しました。");

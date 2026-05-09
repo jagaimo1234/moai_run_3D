@@ -292,6 +292,11 @@
     <p>Kanazawa Moataro</p>
   </div>
 
+  <!-- Preview Mode Banner (shown only in ?preview mode) -->
+  <div id="preview-banner" style="display:none; background:linear-gradient(90deg,rgba(241,196,15,0.15),rgba(230,126,34,0.15)); border:1px solid rgba(241,196,15,0.4); border-radius:10px; margin:0 16px 10px; padding:10px 16px; font-size:13px; color:#f1c40f; font-weight:bold; display:none; align-items:center; gap:8px;">
+    🔒 管理者プレビューモード — 非公開作品を含めてすべて表示中
+  </div>
+
   <!-- Admin Modal (Less Conspicuous) -->
   <div id="admin-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999; justify-content:center; align-items:center; flex-direction:column;">
     <div style="background:#1e1e2e; padding:30px 40px; border-radius:16px; text-align:center; border:1px solid rgba(255,255,255,0.1);">
@@ -374,6 +379,14 @@
     let currentSlide = 0;
     window.eventProductsData = {};
     window.eventConfigData = {};
+    window.hiddenProductsData = {};
+
+    // Preview mode: ?preview=moai2024 shows all products including hidden
+    const IS_PREVIEW_MODE = new URLSearchParams(window.location.search).get('preview') === 'moai2024';
+    if (IS_PREVIEW_MODE) {
+      const banner = document.getElementById('preview-banner');
+      if (banner) { banner.style.display = 'flex'; }
+    }
 
     // ===== Build event tabs =====
     function buildTabs() {
@@ -430,6 +443,10 @@
           products = selectedIds
             .map(id => allMaster.find(p => p.id === id))
             .filter(p => p !== undefined);
+        }
+        // Filter out hidden products unless in preview mode
+        if (!IS_PREVIEW_MODE) {
+          products = products.filter(p => !window.hiddenProductsData[p.id]);
         }
       }
 
@@ -750,10 +767,17 @@
     window.customProductsData = {};
     window.eventProductsData = {};
     window.eventConfigData = {};
+    window.hiddenProductsData = {};
     let badgesData = {};
     let descriptionsData = {};
     let announcementsData = {};
     let currentEditingProductId = null;
+
+    // Listen to hidden products
+    onSnapshot(doc(db, "settings", "hidden_products"), (docSnap) => {
+      window.hiddenProductsData = docSnap.exists() ? docSnap.data() : {};
+      buildViews();
+    });
 
     // Listen to event products
     onSnapshot(doc(db, "settings", "event_products"), (docSnap) => {
