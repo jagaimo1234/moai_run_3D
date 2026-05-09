@@ -287,6 +287,10 @@ const EVENTS = {
         desc:  '記念すべき、初めて世に販売した作品です。'
       }
     ]
+  },
+  moairoom: {
+    label: '🗿 モアイの部屋',
+    products: []
   }
 };
 
