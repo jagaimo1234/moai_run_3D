@@ -403,12 +403,16 @@
           else if (config.visible === false) status = 'hidden';
         }
         
-        if (status === 'hidden') return;
+        if (status === 'hidden' && !IS_PREVIEW_MODE) return;
+
+        const hiddenBadge = (status === 'hidden' && IS_PREVIEW_MODE)
+          ? ' <span style="font-size:10px; background:rgba(231,76,60,0.3); color:#e74c3c; border-radius:4px; padding:1px 5px; vertical-align:middle;">🔒非公開</span>'
+          : '';
 
         container.innerHTML += `
           <button class="event-tab ${key === currentEventKey ? 'active' : ''}"
                   id="tab-${key}" onclick="switchEvent('${key}')">
-            ${ev.label}
+            ${ev.label}${hiddenBadge}
           </button>`;
       });
     }
@@ -432,7 +436,10 @@
         else if (config.visible === false) status = 'hidden';
       }
       
-      if (status !== 'preparing') {
+      // In preview mode, treat hidden events like public
+      const effectiveStatus = (IS_PREVIEW_MODE && status === 'hidden') ? 'public' : status;
+      
+      if (effectiveStatus !== 'preparing') {
         const selectedIds = window.eventProductsData ? window.eventProductsData[currentEventKey] : null;
         const allMaster = window.getFullMasterProducts(window.customProductsData);
         if (!selectedIds) {
