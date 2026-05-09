@@ -363,6 +363,12 @@
 
   <!-- Moai Room View -->
   <div id="moairoom-view" style="display:none; padding: 20px 16px 60px;">
+    <!-- Debug Toggle (Only in Preview Mode) -->
+    <div id="moairoom-debug-controls" style="display:none; justify-content:center; margin-bottom:20px; gap:10px;">
+      <button onclick="toggleMoaiRoomDebugState(false)" style="background:#444; color:#fff; border:1px solid #666; padding:5px 12px; border-radius:15px; font-size:11px; cursor:pointer;">🔒 ロック中を検証</button>
+      <button onclick="toggleMoaiRoomDebugState(true)" style="background:#444; color:#fff; border:1px solid #666; padding:5px 12px; border-radius:15px; font-size:11px; cursor:pointer;">✨ 解放後を検証</button>
+    </div>
+
     <!-- Locked State -->
     <div id="moairoom-locked" style="max-width:500px; margin:0 auto; text-align:center;">
       <div style="font-size:80px; margin-bottom:16px; animation: float 3s ease-in-out infinite;">🗿</div>
@@ -498,14 +504,39 @@
 
     // ===== Build tile & carousel =====
     function buildViews() {
+      const allEvents = window.getAllEvents(window.eventConfigData);
+      const config = window.eventConfigData[currentEventKey];
+      let status = 'public';
+      if (config) {
+        if (config.status) status = config.status;
+        else if (config.visible === false) status = 'hidden';
+      }
+      
+      // In preview mode, treat hidden events like public
+      const effectiveStatus = (IS_PREVIEW_MODE && status === 'hidden') ? 'public' : status;
+
       // --- Moai Room: special handling ---
       const moairoomView = document.getElementById('moairoom-view');
       if (currentEventKey === 'moairoom') {
         document.getElementById('tile-view').style.display = 'none';
         document.getElementById('carousel-view').style.display = 'none';
+        
+        // Show room only if not hidden (or if preview mode)
+        if (effectiveStatus === 'hidden') {
+          if (moairoomView) moairoomView.style.display = 'none';
+          document.getElementById('tile-view').innerHTML = '<div class="empty-state">この部屋は現在閉鎖されています。</div>';
+          document.getElementById('tile-view').style.display = 'block';
+          return;
+        }
+
         if (moairoomView) moairoomView.style.display = 'block';
         document.getElementById('item-count').innerHTML = '';
         document.getElementById('tab-hero-container').innerHTML = '';
+        
+        // Show debug controls in preview mode
+        const debugControls = document.getElementById('moairoom-debug-controls');
+        if (debugControls) debugControls.style.display = IS_PREVIEW_MODE ? 'flex' : 'none';
+
         // Show locked or unlocked state based on localStorage
         const unlocked = localStorage.getItem('moairoom_unlocked') === 'true';
         document.getElementById('moairoom-locked').style.display = unlocked ? 'none' : 'block';
@@ -515,13 +546,6 @@
       if (moairoomView) moairoomView.style.display = 'none';
 
       let products = [];
-      const allEvents = window.getAllEvents(window.eventConfigData);
-      const config = window.eventConfigData[currentEventKey];
-      let status = 'public';
-      if (config) {
-        if (config.status) status = config.status;
-        else if (config.visible === false) status = 'hidden';
-      }
       
       // In preview mode, treat hidden events like public
       const effectiveStatus = (IS_PREVIEW_MODE && status === 'hidden') ? 'public' : status;
@@ -795,6 +819,11 @@
           if (unlocked) unlocked.style.display = 'block';
         }, 400);
       }
+    }
+
+    function toggleMoaiRoomDebugState(isUnlocked) {
+      localStorage.setItem('moairoom_unlocked', isUnlocked ? 'true' : 'false');
+      buildViews();
     }
 
     // ===== Carousel logic =====
