@@ -547,9 +547,6 @@
 
       let products = [];
       
-      // In preview mode, treat hidden events like public
-      const effectiveStatus = (IS_PREVIEW_MODE && status === 'hidden') ? 'public' : status;
-      
       if (effectiveStatus !== 'preparing') {
         const selectedIds = window.eventProductsData ? window.eventProductsData[currentEventKey] : null;
         const allMaster = window.getFullMasterProducts(window.customProductsData);
