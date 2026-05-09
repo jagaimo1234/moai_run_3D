@@ -931,7 +931,7 @@
         else if (config.visible === false) status = 'hidden';
       }
       
-      if (status === 'hidden') {
+      if (status === 'hidden' && !IS_PREVIEW_MODE) {
         switchEvent(DEFAULT_EVENT);
       } else {
         buildViews();
