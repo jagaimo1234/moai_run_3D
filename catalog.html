@@ -473,7 +473,7 @@
       Object.entries(allEvents).forEach(([key, ev]) => {
         // Handle visibility status
         const config = window.eventConfigData[key];
-        let status = 'public';
+        let status = ev.defaultStatus || 'public';
         if (config) {
           if (config.status) status = config.status;
           else if (config.visible === false) status = 'hidden';
@@ -505,7 +505,7 @@
     function buildViews() {
       const allEvents = window.getAllEvents(window.eventConfigData);
       const config = window.eventConfigData[currentEventKey];
-      let status = 'public';
+      let status = allEvents[currentEventKey]?.defaultStatus || 'public';
       if (config) {
         if (config.status) status = config.status;
         else if (config.visible === false) status = 'hidden';

@@ -290,7 +290,8 @@ const EVENTS = {
   },
   moairoom: {
     label: '🗿 モアイの部屋',
-    products: []
+    products: [],
+    defaultStatus: 'hidden'
   }
 };
 
