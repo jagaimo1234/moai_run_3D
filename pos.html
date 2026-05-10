@@ -1551,6 +1551,7 @@
 
         const devControls = p.isDev ? `
           <div style="position:absolute; bottom:8px; left:8px; display:flex; gap:5px;">
+            <div onclick="event.stopPropagation(); editDevProduct('${p.id}')" style="background:rgba(255,255,255,0.2); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white;" title="名前を変更">✏️</div>
             <div onclick="event.stopPropagation(); openDevProductModal('${p.id}')" style="background:var(--accent); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="進捗を更新">✨</div>
             <div onclick="event.stopPropagation(); deleteDevProduct('${p.id}')" style="background:rgba(255,0,0,0.3); border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; color:white;" title="削除">🗑️</div>
           </div>
