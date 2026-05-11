@@ -510,7 +510,13 @@
       window.saveGlobalHighScore = async function(newScore, name) {
         try {
           const scoreRef = ref(db, 'global_stats/high_score');
-          await set(scoreRef, { score: newScore, name: name || "ななし" });
+          await runTransaction(scoreRef, (current) => {
+            const currentScore = (current && typeof current === 'object') ? current.score : (current || 0);
+            if (!current || newScore > currentScore) {
+              return { score: newScore, name: name || "ななし" };
+            }
+            return; // キャンセル（更新しない）
+          });
           return true;
         } catch(e) {
           console.error(e);
