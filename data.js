@@ -312,7 +312,7 @@ const EVENTS = {
 };
 
 // デフォルトで最初に選択されるイベント
-const DEFAULT_EVENT = 'kurima';
+const DEFAULT_EVENT = 'designfesta';
 
 // 全ての作品に自動でidを付与（画像パスから生成）
 function assignIds(list) {
