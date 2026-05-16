@@ -274,7 +274,9 @@ const EVENTS = {
   },
   designfesta: {
     label: 'デザインフェスタ',
-    products: []
+    products: [
+      ...MASTER_PRODUCTS
+    ]
   },
   history: {
     label: '歴代図鑑',
