@@ -246,6 +246,22 @@ const MASTER_PRODUCTS = [
     name:  'モブモアイロボ',
     desc:  'スタジオ背景で撮影された、スタイリッシュなモアイロボのポートレートシリーズ。'
   },
+  {
+    image: 'images/kurima/mini_osuwari_keychain.jpg',
+    images: [
+      'images/kurima/mini_osuwari_keychain.jpg',
+      'images/kurima/mini_osuwari_keychain/1_studio.png',
+      'images/kurima/mini_osuwari_keychain/2_studio.png',
+      'images/kurima/mini_osuwari_keychain/3_studio.png',
+      'images/kurima/mini_osuwari_keychain/4_studio.png',
+      'images/kurima/mini_osuwari_keychain/5_studio.png',
+      'images/kurima/mini_osuwari_keychain/IMG_9406_studio.png',
+      'images/kurima/mini_osuwari_keychain/IMG_9407_studio.png',
+      'images/kurima/mini_osuwari_keychain/IMG_9411_studio.png',
+    ],
+    name:  'ミニおすわりモアイの\nキーホルダー',
+    desc:  'ちょこんとお座りするミニモアイのキーホルダー。どこへでも一緒に連れて行けます。'
+  },
 ];
 
 const EVENTS = {
