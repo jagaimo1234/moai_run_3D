@@ -267,10 +267,8 @@ const MASTER_PRODUCTS = [
 const EVENTS = {
   kurima: {
     label: '名古屋クリマ',
-    products: [
-      // 全マスターデータを反映
-      ...MASTER_PRODUCTS 
-    ]
+    defaultStatus: 'hidden',
+    products: []
   },
   designfesta: {
     label: 'デザインフェスタ',
