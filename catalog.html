@@ -540,7 +540,7 @@
     }
   </style>
 
-  <script src="data.js?v=20260517_2208"></script>
+  <script src="data.js?v=20260517_2213"></script>
   <script>
     const DEV_STATUSES = [
       { label: "💭 発掘中", desc: "アイデア・構想段階" },
@@ -666,6 +666,7 @@
           products = products.filter(p => !window.hiddenProductsData[p.id]);
         }
       }
+      window.currentRenderedProducts = products;
 
       // Item count & Tab description
       const eventData = allEvents[currentEventKey];
@@ -893,18 +894,24 @@
 
     // ===== Topics detail opener =====
     function openProductById(id) {
-      const allEvents = window.getAllEvents(window.eventConfigData);
-      const selectedIds = window.eventProductsData ? window.eventProductsData[currentEventKey] : null;
-      const allMaster = window.getFullMasterProducts(window.customProductsData);
-      let products = [];
-      if (!selectedIds) products = allEvents[currentEventKey]?.products || [];
-      else products = selectedIds.map(i => allMaster.find(p => p.id === i)).filter(Boolean);
+      if (!window.currentRenderedProducts || window.currentRenderedProducts.length === 0) {
+        alert("作品データがまだ準備されていません。");
+        return;
+      }
 
-      const idx = products.findIndex(p => p.id === id);
+      let idx = window.currentRenderedProducts.findIndex(p => p.id === id);
+      if (idx === -1) {
+        if (id === 'mini_osuwari_keychain') {
+          idx = window.currentRenderedProducts.findIndex(p => p.name && p.name.includes('ミニおすわり'));
+        } else if (id === 'keychain') {
+          idx = window.currentRenderedProducts.findIndex(p => p.name && p.name.includes('ヨーグルトラン'));
+        }
+      }
+
       if (idx !== -1) {
         openDetail(idx);
       } else {
-        alert("該当する作品情報が見つかりませんでした。");
+        alert("現在選択中のイベント一覧に該当する作品が含まれていないか、非公開になっています。");
       }
     }
     window.openProductById = openProductById;
