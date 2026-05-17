@@ -540,7 +540,7 @@
     }
   </style>
 
-  <script src="data.js?v=20260517_2213"></script>
+  <script src="data.js?v=20260517_2218"></script>
   <script>
     const DEV_STATUSES = [
       { label: "💭 発掘中", desc: "アイデア・構想段階" },
@@ -1116,23 +1116,21 @@
     });
 
     function updateAllAnnouncements() {
-      const allEvents = window.getAllEvents(window.eventConfigData);
-      Object.keys(allEvents).forEach(ev => {
-        (allEvents[ev].products || []).forEach(p => {
-          if (!p.id) return;
-          const container = document.getElementById(`announce-container-${p.id}`);
-          const textEl = document.getElementById(`announce-text-${p.id}`);
-          if (container && textEl) {
-            const text = announcementsData[p.id];
-            if (text && text.trim() !== '') {
-              textEl.innerHTML = text.replace(/\n/g, '<br>');
-              container.classList.add('has-content');
-            } else {
-              textEl.innerHTML = '';
-              container.classList.remove('has-content');
-            }
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      allMaster.forEach(p => {
+        if (!p.id) return;
+        const container = document.getElementById(`announce-container-${p.id}`);
+        const textEl = document.getElementById(`announce-text-${p.id}`);
+        if (container && textEl) {
+          const text = announcementsData[p.id];
+          if (text && text.trim() !== '') {
+            textEl.innerHTML = text.replace(/\n/g, '<br>');
+            container.classList.add('has-content');
+          } else {
+            textEl.innerHTML = '';
+            container.classList.remove('has-content');
           }
-        });
+        }
       });
     }
 
@@ -1151,38 +1149,36 @@
 
     function updateAllStock() {
       const displayStock = stockData._displayStock !== false; // true by default
-      const allEvents = window.getAllEvents(window.eventConfigData);
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
 
-      Object.keys(allEvents).forEach(ev => {
-        (allEvents[ev].products || []).forEach(p => {
-          const id = p.id;
-          if (!id) return;
-          const status = stockData[id] || 'none';
-          const els = [document.getElementById(`stock-${id}`), document.getElementById(`stock-large-${id}`)];
-          els.forEach(el => {
-            if (!el) return;
-            
-            if (!displayStock) {
-              el.style.display = 'none';
-              return;
-            }
+      allMaster.forEach(p => {
+        const id = p.id;
+        if (!id) return;
+        const status = stockData[id] || 'none';
+        const els = [document.getElementById(`stock-${id}`), document.getElementById(`stock-large-${id}`)];
+        els.forEach(el => {
+          if (!el) return;
+          
+          if (!displayStock) {
+            el.style.display = 'none';
+            return;
+          }
 
-            if (status === 'onsale') {
-              el.className = 'badge badge-onsale';
-              el.textContent = '✅ 販売中';
-              el.style.display = 'inline-block';
-            } else if (status === 'few') {
-              el.className = 'badge badge-few';
-              el.textContent = '⚠️ 残りわずか';
-              el.style.display = 'inline-block';
-            } else if (status === 'soldout') {
-              el.className = 'badge badge-soldout';
-              el.textContent = '❌ 売り切れ';
-              el.style.display = 'inline-block';
-            } else {
-              el.style.display = 'none';
-            }
-          });
+          if (status === 'onsale') {
+            el.className = 'badge badge-onsale';
+            el.textContent = '✅ 販売中';
+            el.style.display = 'inline-block';
+          } else if (status === 'few') {
+            el.className = 'badge badge-few';
+            el.textContent = '⚠️ 残りわずか';
+            el.style.display = 'inline-block';
+          } else if (status === 'soldout') {
+            el.className = 'badge badge-soldout';
+            el.textContent = '❌ 売り切れ';
+            el.style.display = 'inline-block';
+          } else {
+            el.style.display = 'none';
+          }
         });
       });
     }
@@ -1202,16 +1198,14 @@
     });
 
     function updateAllDescriptions() {
-      const allEvents = window.getAllEvents(window.eventConfigData);
-      Object.keys(allEvents).forEach(ev => {
-        (allEvents[ev].products || []).forEach(p => {
-          if (!p.id) return;
-          const el = document.getElementById(`desc-text-${p.id}`);
-          if (el) {
-            const customDesc = descriptionsData[p.id];
-            el.innerHTML = (customDesc !== undefined ? customDesc : (p.desc || '')).replace(/\n/g, '<br>');
-          }
-        });
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      allMaster.forEach(p => {
+        if (!p.id) return;
+        const el = document.getElementById(`desc-text-${p.id}`);
+        if (el) {
+          const customDesc = descriptionsData[p.id];
+          el.innerHTML = (customDesc !== undefined ? customDesc : (p.desc || '')).replace(/\n/g, '<br>');
+        }
       });
     }
 
@@ -1231,28 +1225,26 @@
     });
 
     function updateAllBadges() {
-      const allEvents = window.getAllEvents(window.eventConfigData);
-      Object.keys(allEvents).forEach(ev => {
-        (allEvents[ev].products || []).forEach(p => {
-          const id = p.id;
-          if (!id) return;
-          const status = badgesData[id] || 'none';
-          
-          const els = [document.getElementById(`badge-${id}`), document.getElementById(`badge-large-${id}`)];
-          els.forEach(el => {
-            if (!el) return;
-            if (status === 'super') {
-              el.className = 'badge badge-super';
-              el.textContent = '👑 超おすすめ';
-              el.style.display = 'inline-block';
-            } else if (status === 'recommend') {
-              el.className = 'badge badge-recommend';
-              el.textContent = '👍 おすすめ';
-              el.style.display = 'inline-block';
-            } else {
-              el.style.display = 'none';
-            }
-          });
+      const allMaster = window.getFullMasterProducts(window.customProductsData);
+      allMaster.forEach(p => {
+        const id = p.id;
+        if (!id) return;
+        const status = badgesData[id] || 'none';
+        
+        const els = [document.getElementById(`badge-${id}`), document.getElementById(`badge-large-${id}`)];
+        els.forEach(el => {
+          if (!el) return;
+          if (status === 'super') {
+            el.className = 'badge badge-super';
+            el.textContent = '👑 超おすすめ';
+            el.style.display = 'inline-block';
+          } else if (status === 'recommend') {
+            el.className = 'badge badge-recommend';
+            el.textContent = '👍 おすすめ';
+            el.style.display = 'inline-block';
+          } else {
+            el.style.display = 'none';
+          }
         });
       });
     }
@@ -1370,7 +1362,12 @@
       }
     });
 
-    window.addEventListener('viewsBuilt', updateAllBadges);
+    window.addEventListener('viewsBuilt', () => {
+      updateAllStock();
+      updateAllBadges();
+      updateAllDescriptions();
+      updateAllAnnouncements();
+    });
 
     // ===== Author Follower (Easter Egg) =====
     const follower = document.createElement('img');
