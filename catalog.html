@@ -272,6 +272,54 @@
       border: 1px solid rgba(0,210,255,0.5); color: #00d2ff; padding: 3px 8px;
       border-radius: 6px; font-size: 10px; font-weight: 900; backdrop-filter: blur(4px);
     }
+
+    /* ===== DEMO BUTTON & BADGE ===== */
+    .btn-demo-glow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 28px;
+      margin: 24px 0 16px;
+      background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 50%, #8a2387 100%);
+      background-size: 200% 200%;
+      animation: gradientShift 4s ease infinite;
+      border-radius: 50px;
+      color: #fff;
+      font-weight: 900;
+      font-size: clamp(15px, 4vw, 18px);
+      letter-spacing: 1.5px;
+      text-decoration: none;
+      box-shadow: 0 8px 32px rgba(0, 210, 255, 0.4);
+      border: 1px solid rgba(255,255,255,0.4);
+      transition: all 0.2s;
+    }
+    .btn-demo-glow:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 40px rgba(0, 210, 255, 0.7);
+    }
+    .btn-demo-glow:active {
+      transform: translateY(1px) scale(0.98);
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .demo-badge-tile {
+      position: absolute; top: 10px; right: 10px;
+      background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+      border: 1px solid rgba(255,255,255,0.6); color: #fff; padding: 4px 10px;
+      border-radius: 12px; font-size: 11px; font-weight: 900;
+      box-shadow: 0 0 12px rgba(0,210,255,0.8);
+      animation: pulseDemo 2s infinite;
+      pointer-events: none;
+    }
+    @keyframes pulseDemo {
+      0% { transform: scale(1); box-shadow: 0 0 8px rgba(0,210,255,0.6); }
+      50% { transform: scale(1.05); box-shadow: 0 0 16px rgba(0,210,255,1); }
+      100% { transform: scale(1); box-shadow: 0 0 8px rgba(0,210,255,0.6); }
+    }
   </style>
 </head>
 <body>
@@ -600,6 +648,7 @@
               <div style="position:relative;">
                 ${imageHtml}
                 ${p.isDev ? `<div class="dev-badge-tile">${DEV_STATUSES[parseInt(p.status) || 0].label}</div>` : ''}
+                ${p.demoUrl ? `<div class="demo-badge-tile">🎮 体験版あり</div>` : ''}
               </div>
               <div class="product-info-tile">
                 <div class="product-name-tile">${p.isDev ? '❓ [新作] ' : ''}${p.name.replace(/\n/g,'<br>')}</div>
@@ -670,6 +719,17 @@
                   </div>
                   <div class="product-desc" id="desc-text-${p.id}">${(p.desc || '').replace(/\n/g, '<br>')}</div>
                   
+                  <!-- 体験版ボタン -->
+                  ${p.demoUrl ? `
+                    <div style="text-align: center;">
+                      <a href="${p.demoUrl}" target="_blank" rel="noopener noreferrer" class="btn-demo-glow">
+                        <span style="font-size: 20px;">🎮</span>
+                        <span>Webで体験版をプレイ！</span>
+                        <span style="font-size: 16px;">✨</span>
+                      </a>
+                    </div>
+                  ` : ''}
+
                   <!-- 開発ステータスフロー -->
                   ${p.isDev ? renderStatusFlow(p.status || 0) : ''}
 

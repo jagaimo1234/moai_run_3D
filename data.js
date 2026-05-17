@@ -127,7 +127,8 @@ const MASTER_PRODUCTS = [
       'images/kurima/keychain/detail_07.png',
     ],
     name:  'モアイロボ ヨーグルトランEX\nカートリッジキーホルダー',
-    desc:  'スマホをかざすと遊べる！AR対応ゲームカートリッジ型キーホルダー。'
+    desc:  'スマホをかざすと遊べる！AR対応ゲームカートリッジ型キーホルダー。',
+    demoUrl: 'https://moai-demo-game.vercel.app/'
   },
   {
     image: 'images/kurima/glasses_stand.jpg',
