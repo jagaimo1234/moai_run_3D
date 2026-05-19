@@ -67,6 +67,11 @@ const MASTER_PRODUCTS = [
     desc:  'ブルー・グレー・ピンクの3体セット。'
   },
   {
+    image: 'images/kurima/moai_robo_mk2_gold.jpg',
+    name:  'ヨーグルト好きモアイロボ\nmark2 EXゴールド',
+    desc:  '黄金に輝く特別なモアイロボ。'
+  },
+  {
     image: 'images/kurima/moai_robo_yogurt_lover.jpg',
     images: [
       'images/kurima/moai_robo_yogurt_lover/movie.mp4',
