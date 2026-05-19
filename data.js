@@ -68,6 +68,18 @@ const MASTER_PRODUCTS = [
   },
   {
     image: 'images/kurima/moai_robo_mk2_gold.jpg',
+    images: [
+      'images/kurima/moai_robo_mk2_gold.jpg',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_01.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_02.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_03.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_04.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_05.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_06.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_07.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_08.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_09.png',
+    ],
     name:  'ヨーグルト好きモアイロボ\nmark2 EXゴールド',
     desc:  '黄金に輝く特別なモアイロボ。'
   },
