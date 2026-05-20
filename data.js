@@ -67,9 +67,9 @@ const MASTER_PRODUCTS = [
     desc:  'ブルー・グレー・ピンクの3体セット。'
   },
   {
-    image: 'images/kurima/moai_robo_mk2_gold.jpg?v=20260520',
+    image: 'images/kurima/moai_robo_mk2_gold.jpg?v=20260520_2',
     images: [
-      'images/kurima/moai_robo_mk2_gold.jpg?v=20260520',
+      'images/kurima/moai_robo_mk2_gold.jpg?v=20260520_2',
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_01.png',
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_02.png',
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_03.png',
