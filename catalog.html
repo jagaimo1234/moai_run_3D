@@ -210,6 +210,8 @@
       animation: fadeInEpic 1s ease-out;
     }
     @keyframes fadeInEpic { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .history-epic-story::before {
       content: '✦'; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
       color: #FFD700; font-size: 18px; background: #0a0a0f; padding: 0 15px;
@@ -789,6 +791,54 @@
                   <!-- 開発ステータスフロー -->
                   ${p.isDev ? renderStatusFlow(p.status || 0) : ''}
 
+                  <!-- ゴールドモアイロボ限定特典解放欄 -->
+                  ${p.id === 'moai_robo_mk2_gold' ? `
+                    <div id="gold-secret-container" style="margin-top:20px; background:linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,165,0,0.04) 100%); border:2px solid rgba(255,215,0,0.4); border-radius:16px; padding:20px; font-family:'DotGothic16', sans-serif; box-shadow:0 8px 32px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,215,0,0.05);">
+                      <!-- Locked/Initial State -->
+                      <div id="gold-secret-locked" style="display: ${localStorage.getItem('gold_secret_unlocked') === 'true' ? 'none' : 'block'}; text-align:left;">
+                        <div style="font-size:14px; font-weight:900; color:#ffd700; margin-bottom:8px; letter-spacing:1px; display:flex; align-items:center; gap:6px; text-shadow:0 0 8px rgba(255,215,0,0.4);">
+                          <span>🔒</span> SECRET ACCESS PORT
+                        </div>
+                        <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-bottom:14px; line-height:1.5;">
+                          この黄金モデルに隠された機密パーツデータを解放するため、アクセスキーを入力してください。
+                        </div>
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                          <input type="text" id="gold-secret-input" placeholder="ENTER ACCESS KEY... _" style="flex:1; min-width:150px; background:#05050a; border:2px solid #ffd700; color:#ffd700; padding:12px 16px; border-radius:8px; font-size:15px; font-family:'DotGothic16', sans-serif; outline:none; text-transform:uppercase; box-shadow:inset 0 0 8px rgba(0,0,0,0.8); letter-spacing:2px;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') checkGoldSecretKey()">
+                          <button onclick="checkGoldSecretKey()" style="background:#ffd700; color:#000; border:2px solid #fff; border-radius:8px; padding:12px 24px; font-weight:bold; font-size:15px; font-family:'DotGothic16', sans-serif; cursor:pointer; box-shadow:0 4px 0 #b39800; transition:all 0.1s; letter-spacing:1px;" onmousedown="this.style.transform='translateY(4px)'; this.style.boxShadow='0 0px 0 #b39800';" onmouseup="this.style.transform=''; this.style.boxShadow='0 4px 0 #b39800';">ENTER ▶</button>
+                        </div>
+                        <div id="gold-secret-error" style="color:#ff3333; font-size:12px; margin-top:8px; min-height:18px; text-shadow:0 0 5px rgba(255,51,51,0.5);"></div>
+                      </div>
+                      
+                      <!-- Unlocked State -->
+                      <div id="gold-secret-unlocked" style="display: ${localStorage.getItem('gold_secret_unlocked') === 'true' ? 'block' : 'none'}; text-align:center;">
+                        <div style="font-size:40px; margin-bottom:10px; animation: float 2.5s ease-in-out infinite;">🏆✨</div>
+                        <div style="font-size:18px; font-weight:900; color:#ffd700; letter-spacing:2px; margin-bottom:6px; text-shadow:0 0 10px rgba(255,215,0,0.5);">ACCESS GRANTED</div>
+                        <div style="font-size:12px; color:rgba(255,215,0,0.7); letter-spacing:1px; margin-bottom:16px;">黄金のモアイロボ限定特典データ アンロック</div>
+                        
+                        <!-- Rewards Cards -->
+                        <div style="display:flex; flex-direction:column; gap:12px; text-align:left;">
+                          <!-- Stand Reward -->
+                          <div style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.3); border-radius:12px; padding:12px; display:flex; align-items:center; gap:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                            <img src="images/kurima/moai_robo_mk2_gold/moai_robo_stand.png" style="width:70px; height:70px; border-radius:8px; object-fit:cover; border:1px solid rgba(255,215,0,0.4); background:#000;">
+                            <div>
+                              <div style="font-size:14px; font-weight:bold; color:#ffd700; display:flex; align-items:center; gap:4px;">🎁 モアイロボスタンド <span style="font-size:10px; background:linear-gradient(90deg, #ffcc00, #ff6600); color:#fff; padding:1px 6px; border-radius:4px; font-family:sans-serif;">GOLD EDITION</span></div>
+                              <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:4px; line-height:1.4;">モアイロボMk-IIを最も気高くスタイリッシュに飾ることができる、専用ゴールドディスプレイスタンド。</div>
+                            </div>
+                          </div>
+                          
+                          <!-- Custom Parts Reward -->
+                          <div style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.3); border-radius:12px; padding:12px; display:flex; align-items:center; gap:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                            <img src="images/kurima/moai_robo_mk2_gold/moai_custom_parts.png" style="width:70px; height:70px; border-radius:8px; object-fit:cover; border:1px solid rgba(255,215,0,0.4); background:#000;">
+                            <div>
+                              <div style="font-size:14px; font-weight:bold; color:#ffd700; display:flex; align-items:center; gap:4px;">🎁 おすわりモアイカスタムパーツ <span style="font-size:10px; background:#00d2ff; color:#000; padding:1px 6px; border-radius:4px; font-family:sans-serif;">2個セット</span></div>
+                              <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:4px; line-height:1.4;">Mk-IIの肩や足元に増設装着が可能な、レトロ可愛い「おすわりモアイ」カスタム追加パーツ。</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+
                   <!-- お知らせ欄 -->
                   <div class="product-announcement" id="announce-container-${p.id}">
                     <div class="announce-label">
@@ -956,6 +1006,43 @@
         }, 400);
       }
     }
+
+    function checkGoldSecretKey() {
+      const input = document.getElementById('gold-secret-input');
+      const error = document.getElementById('gold-secret-error');
+      if (!input) return;
+      const val = input.value.trim().toUpperCase();
+      if (val === 'YOGURTLOVE') {
+        localStorage.setItem('gold_secret_unlocked', 'true');
+        unlockGoldSecret();
+      } else {
+        error.textContent = '...そのアクセスコードは無効だ。';
+        input.style.borderColor = '#ff3333';
+        setTimeout(() => {
+          error.textContent = '';
+          input.style.borderColor = '#ffd700';
+        }, 2000);
+      }
+    }
+
+    function unlockGoldSecret() {
+      const locked = document.getElementById('gold-secret-locked');
+      const unlocked = document.getElementById('gold-secret-unlocked');
+      if (locked) {
+        locked.style.animation = 'fadeOut 0.4s ease forwards';
+        setTimeout(() => {
+          locked.style.display = 'none';
+          locked.style.animation = '';
+          if (unlocked) {
+            unlocked.style.display = 'block';
+            unlocked.style.animation = 'fadeIn 0.6s ease-out';
+          }
+        }, 400);
+      }
+    }
+
+    window.checkGoldSecretKey = checkGoldSecretKey;
+    window.unlockGoldSecret = unlockGoldSecret;
 
     function toggleMoaiRoomDebugState(isUnlocked) {
       localStorage.setItem('moairoom_unlocked', isUnlocked ? 'true' : 'false');
