@@ -86,6 +86,11 @@ const MASTER_PRODUCTS = [
     desc:  '黄金に輝く特別なモアイロボ。'
   },
   {
+    image: 'images/kurima/moai_robo_mk2_gold/moai_robo_stand.png?v=20260520',
+    name:  'モアイロボ mark2専用\n可変式ディスプレイスタンド',
+    desc:  'モアイロボMark2を気高くスタイリッシュに飾ることができる、専用の可変式ディスプレイスタンド。'
+  },
+  {
     image: 'images/kurima/moai_robo_yogurt_lover.jpg',
     images: [
       'images/kurima/moai_robo_yogurt_lover/movie.mp4',
