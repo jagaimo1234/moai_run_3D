@@ -79,6 +79,8 @@ const MASTER_PRODUCTS = [
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_07.png',
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_08.png',
       'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_09.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_10.png',
+      'images/kurima/moai_robo_mk2_gold/moai_robo_mk2_gold_11.png',
     ],
     name:  'ヨーグルト好きモアイロボ\nmark2 EXゴールド',
     desc:  '黄金に輝く特別なモアイロボ。'
