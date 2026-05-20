@@ -100,6 +100,7 @@ const MASTER_PRODUCTS = [
       'images/kurima/moai_robo_stand/IMG_9564_studio.png',
       'images/kurima/moai_robo_stand/moai_robo_mk2_gold_01.png',
       'images/kurima/moai_robo_stand/moai_robo_mk2_gold_03.png',
+      'images/kurima/moai_robo_stand/moai_robo_mk2_gold_09.png',
     ],
     name:  'モアイロボMark2専用スタンド',
     desc:  'モアイロボMark2専用スタンドは、\nMoataro博士により試験開発された支援装備（試作機）です。\n\n好きな角度で浮かせて飾れる、\n可変スタンド。\n\n空中浮遊、\nジャンプ、\n大気圏突入、\n撃墜シーンまで。\n\n思いつくまま、\nさまざまな場面を再現できます。\n\n立たせるだけじゃない、\n遊べるモアイロボへ。\n確実にニヤけます🗿\n\n以下いずれかの条件達成で、\nスタンド1基を特典支給します。\n\n・モアイロボシリーズを2体以上ご購入\n・モアイロボ EX Gold Edition MARK2購入\n　かつヨーグルトランEXの秘密のアクセスキー所持\n・「モアイを避けろゲーム」\n　岩田モア夫の最高スコア（現時点1087）更新\n\n条件外の方は、\n単体500円（予定）にて購入可能です。\n（一人1個まで）\n\n数量限定のため、\nなくなり次第終了です。\n\n※デザフェス会場当日購入者対象\n※過去購入者・今後フリマ購入者向け条件も順次対応予定'
