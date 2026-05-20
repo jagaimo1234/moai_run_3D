@@ -317,32 +317,87 @@ const EVENTS = {
           <span class="topics-icon">🔥</span>
           <span class="topics-title">HOT TOPICS & NEWS</span>
         </div>
-        <div class="topics-body">
-          <div class="topic-item">
-            <div class="topic-bullet">🆕</div>
-            <div class="topic-content">
-              <div class="topic-headline">ミニおすわりモアイのキーホルダーが登場！！</div>
-              <div class="topic-sub">ちょこんとお座りする愛らしいミニモアイ。どこへでも一緒に連れて行けます。</div>
-              <div style="margin-top: 8px;">
-                <button onclick="window.openProductById('mini_osuwari_keychain')" class="btn-topic-detail">作品詳細を見る 🔍</button>
-              </div>
-            </div>
-          </div>
-          <div class="topic-item">
-            <div class="topic-bullet">⚡</div>
-            <div class="topic-content">
-              <div class="topic-headline">ヨーグルトランEX メジャーアップデート実施！</div>
-              <div class="topic-sub">モアイロボMk-IIが参戦し難易度が爆上がり！スマホをかざして遊べるNFC対応キーホルダー。</div>
-              <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-                <a href="https://moai-demo-game.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn-topic-demo">
-                  🎮 WEB体験版をプレイ！ →
-                </a>
-                <button onclick="window.openProductById('keychain')" class="btn-topic-detail">作品詳細を見る 🔍</button>
-              </div>
-            </div>
-          </div>
+        <div class="topics-carousel-wrapper" style="position:relative; overflow:hidden;">
+          <div class="topics-body" id="topics-carousel" style="transition: opacity 0.4s ease;"></div>
+          <div style="display:flex; justify-content:center; gap:6px; margin-top:10px;" id="topics-dots"></div>
         </div>
       </div>
+      <script>
+      (function(){
+        const TOPICS = [
+          {
+            bullet: '🏆',
+            headline: 'ゴールドモアイロボ 登場！！',
+            sub: '黄金に輝く超限定モデル。秘密のアクセスキーで特典も解放できる！？',
+            btn: { label: '作品詳細を見る 🔍', action: "window.openProductById('moai_robo_mk2_gold')" }
+          },
+          {
+            bullet: '🗿',
+            headline: 'モアイロボMark2専用スタンド 登場！',
+            sub: '空中浮遊、ジャンプ、大気圏突入まで。遊べるモアイロボへ。確実にニヤけます。',
+            btn: { label: '作品詳細を見る 🔍', action: "window.openProductById('moai_robo_stand')" }
+          },
+          {
+            bullet: '🪑',
+            headline: 'おすわりモアイカスタムパーツ 登場！',
+            sub: 'モアイロボMk-IIに装着できる、可愛らしいおすわりモアイの追加パーツ2個セット。',
+            btn: { label: '作品詳細を見る 🔍', action: "window.openProductById('moai_robo_mk2_gold')" }
+          },
+          {
+            bullet: '🆕',
+            headline: 'ミニおすわりモアイのキーホルダーが登場！！',
+            sub: 'ちょこんとお座りする愛らしいミニモアイ。どこへでも一緒に連れて行けます。',
+            btn: { label: '作品詳細を見る 🔍', action: "window.openProductById('mini_osuwari_keychain')" }
+          },
+          {
+            bullet: '⚡',
+            headline: 'ヨーグルトランEX メジャーアップデート実施！',
+            sub: 'モアイロボMk-IIが参戦し難易度が爆上がり！スマホをかざして遊べるNFC対応キーホルダー。',
+            extra: '<a href="https://moai-demo-game.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn-topic-demo">🎮 WEB体験版をプレイ！ →</a>',
+            btn: { label: '作品詳細を見る 🔍', action: "window.openProductById('keychain')" }
+          }
+        ];
+        const PER_PAGE = 2;
+        let current = 0;
+        let timer;
+
+        function render() {
+          const carousel = document.getElementById('topics-carousel');
+          const dots = document.getElementById('topics-dots');
+          if (!carousel || !dots) return;
+          const total = Math.ceil(TOPICS.length / PER_PAGE);
+          const items = TOPICS.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE);
+          carousel.style.opacity = '0';
+          setTimeout(function() {
+            carousel.innerHTML = items.map(function(t) {
+              return '<div class="topic-item"><div class="topic-bullet">' + t.bullet + '</div><div class="topic-content"><div class="topic-headline">' + t.headline + '</div><div class="topic-sub">' + t.sub + '</div><div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">' + (t.extra || '') + '<button onclick="' + t.btn.action + '" class="btn-topic-detail">' + t.btn.label + '</button></div></div></div>';
+            }).join('');
+            dots.innerHTML = Array.from({length: total}, function(_, i) {
+              return '<span onclick="window._topicsGo(' + i + ')" style="width:8px;height:8px;border-radius:50%;background:' + (i===current ? '#ff6b35' : 'rgba(255,255,255,0.3)') + ';cursor:pointer;display:inline-block;transition:background 0.3s;margin:0 2px;"></span>';
+            }).join('');
+            carousel.style.opacity = '1';
+          }, 200);
+        }
+
+        window._topicsGo = function(idx) {
+          clearInterval(timer);
+          current = idx;
+          render();
+          timer = setInterval(advance, 5000);
+        };
+
+        function advance() {
+          current = (current + 1) % Math.ceil(TOPICS.length / PER_PAGE);
+          render();
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() { render(); timer = setInterval(advance, 5000); });
+        } else {
+          render(); timer = setInterval(advance, 5000);
+        }
+      })();
+      <\/script>
     `,
     products: [
       ...MASTER_PRODUCTS
