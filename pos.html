@@ -392,6 +392,75 @@
       </div>
     </div>
 
+    <!-- Sale Edit Modal -->
+    <div id="sale-edit-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:3000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:var(--panel-bg); width:100%; max-width:480px; border-radius:12px; padding:20px; border:1px solid var(--border); max-height:90vh; overflow-y:auto;">
+        <h3 style="margin-bottom:16px; color:var(--accent);">✏️ 購入履歴の修正</h3>
+        <input type="hidden" id="sale-edit-timestamp">
+        <div style="font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:12px;" id="sale-edit-items-display"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label>合計金額 (円)</label>
+            <input type="number" id="sale-edit-total" class="form-input" min="0">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>値引き (円)</label>
+            <input type="number" id="sale-edit-discount" class="form-input" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>支払い方法</label>
+          <select id="sale-edit-method" class="form-select">
+            <option value="cash">現金</option>
+            <option value="paypay">PayPay</option>
+            <option value="credit">クレジット</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>性別</label>
+            <select id="sale-edit-gender" class="form-select">
+              <option value="">未選択</option>
+              <option value="男性">男性</option>
+              <option value="女性">女性</option>
+              <option value="不明">不明/その他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>年代</label>
+            <select id="sale-edit-age" class="form-select">
+              <option value="">未選択</option>
+              <option value="10代">10代</option>
+              <option value="20代">20代</option>
+              <option value="30代">30代</option>
+              <option value="40代">40代</option>
+              <option value="50代以上">50代以上</option>
+              <option value="キッズ">キッズ</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>購入きっかけ</label>
+          <select id="sale-edit-reason" class="form-select">
+            <option value="">未選択</option>
+            <option value="通りすがり">通りすがり(一般)</option>
+            <option value="フォロワー">フォロワー</option>
+            <option value="SNS・宣伝投稿">SNS・宣伝投稿</option>
+            <option value="口コミ・紹介">口コミ・紹介</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>対応メモ</label>
+          <input type="text" id="sale-edit-memo" class="form-input" placeholder="メモ">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+          <button class="btn" style="background:#444; color:white;" onclick="document.getElementById('sale-edit-modal').style.display='none'">キャンセル</button>
+          <button class="btn btn-primary" onclick="saveSaleEdit()">💾 保存する</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Simulation View -->
     <section id="simulation-view" class="view-section">
       <div class="scroll-container" style="padding-bottom: 120px;">
@@ -580,6 +649,7 @@
     let unsubConfig = null;
     let unsubSimulation = null;
     let hiddenProductsData = {};
+    let salesRecordsCache = []; // 購入履歴のキャッシュ（修正・削除用）
     
     let currentSimulationData = { activePatternId: "default", patterns: { "default": { name: "基本パターン", target: 150000, simQty: {}, prepQty: {} } } };
     let currentPatternId = "default";
@@ -884,6 +954,7 @@
           
           // Sort records by timestamp descending (newest first)
           const sortedRecords = [...records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          salesRecordsCache = sortedRecords; // キャッシュに保存
           
           sortedRecords.forEach(r => {
             // Totals
@@ -906,7 +977,7 @@
             
             // Build history card
             const timeStr = new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            let itemsStr = r.items.map(i => `${i.name} ×${i.qty}`).join('<br>');
+            let itemsStr = r.items ? r.items.map(i => `${i.name} ×${i.qty}`).join('<br>') : '';
             let tagsHtml = '';
             if (r.customer) {
               if (r.customer.gender) tagsHtml += `<span class="history-tag">${r.customer.gender}</span>`;
@@ -918,6 +989,7 @@
 
             let methodStr = r.paymentMethod === 'cash' ? '現金' : r.paymentMethod === 'paypay' ? 'PayPay' : 'クレジット';
             let methodColor = r.paymentMethod === 'cash' ? 'var(--success)' : r.paymentMethod === 'paypay' ? '#E60012' : 'var(--accent)';
+            const tsEsc = r.timestamp.replace(/'/g, "\\'");
 
             historyContainer.innerHTML += `
               <div class="history-card">
@@ -926,9 +998,13 @@
                   <div class="history-items">${itemsStr}</div>
                   <div class="history-tags">${tagsHtml}</div>
                 </div>
-                <div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
                   <div class="history-amount">¥${r.totalAmount.toLocaleString()}</div>
                   <div class="history-method" style="color: ${methodColor}; font-weight: bold;">${methodStr}</div>
+                  <div style="display:flex; gap:4px; margin-top:6px;">
+                    <button onclick="editSaleRecord('${tsEsc}')" style="font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid rgba(0,210,255,0.5); background:rgba(0,210,255,0.1); color:#00d2ff; cursor:pointer;">✏️ 修正</button>
+                    <button onclick="deleteSaleRecord('${tsEsc}')" style="font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid rgba(231,76,60,0.5); background:rgba(231,76,60,0.1); color:#e74c3c; cursor:pointer;">🗑️ 削除</button>
+                  </div>
                 </div>
               </div>
             `;
@@ -1438,6 +1514,82 @@
         alert("エラーが発生しました。");
       }
     };
+
+    window.resetSalesData = async () => {
+
+    // -------- 購入履歴 修正・削除 --------
+    window.editSaleRecord = (timestamp) => {
+      const r = salesRecordsCache.find(x => x.timestamp === timestamp);
+      if (!r) return alert('履歴が見つかりません。');
+
+      // アイテム一覧表示
+      const itemsStr = r.items ? r.items.map(i => `${i.name} ×${i.qty} (¥${i.price})`).join('  /  ') : '';
+      document.getElementById('sale-edit-items-display').textContent = '対象: ' + itemsStr;
+
+      document.getElementById('sale-edit-timestamp').value = timestamp;
+      document.getElementById('sale-edit-total').value = r.totalAmount;
+      document.getElementById('sale-edit-discount').value = r.discount || 0;
+      document.getElementById('sale-edit-method').value = r.paymentMethod || 'cash';
+      document.getElementById('sale-edit-gender').value = r.customer?.gender || '';
+      document.getElementById('sale-edit-age').value = r.customer?.age || '';
+      document.getElementById('sale-edit-reason').value = r.customer?.reason || '';
+      document.getElementById('sale-edit-memo').value = r.memo || '';
+
+      document.getElementById('sale-edit-modal').style.display = 'flex';
+    };
+
+    window.saveSaleEdit = async () => {
+      if (!auth.currentUser) return;
+      const timestamp = document.getElementById('sale-edit-timestamp').value;
+      try {
+        const salesDocRef = doc(db, "settings", "sales_" + currentEventKey);
+        const snap = await getDoc(salesDocRef);
+        if (!snap.exists()) return;
+
+        const newRecords = (snap.data().records || []).map(r => {
+          if (r.timestamp !== timestamp) return r;
+          return {
+            ...r,
+            paymentMethod: document.getElementById('sale-edit-method').value,
+            totalAmount: parseInt(document.getElementById('sale-edit-total').value) || 0,
+            discount: parseInt(document.getElementById('sale-edit-discount').value) || 0,
+            memo: document.getElementById('sale-edit-memo').value.trim(),
+            customer: {
+              gender: document.getElementById('sale-edit-gender').value,
+              age: document.getElementById('sale-edit-age').value,
+              reason: document.getElementById('sale-edit-reason').value,
+            }
+          };
+        });
+
+        await setDoc(salesDocRef, { records: newRecords });
+        document.getElementById('sale-edit-modal').style.display = 'none';
+        alert('更新しました！');
+      } catch(e) {
+        console.error(e);
+        alert('更新に失敗しました。');
+      }
+    };
+
+    window.deleteSaleRecord = async (timestamp) => {
+      if (!auth.currentUser) return;
+      const r = salesRecordsCache.find(x => x.timestamp === timestamp);
+      const timeStr = r ? new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : timestamp;
+      if (!confirm(`${timeStr} の購入履歴を削除しますか？\n※在庫数は自動では戻りません。`)) return;
+      try {
+        const salesDocRef = doc(db, "settings", "sales_" + currentEventKey);
+        const snap = await getDoc(salesDocRef);
+        if (!snap.exists()) return;
+
+        const newRecords = (snap.data().records || []).filter(r => r.timestamp !== timestamp);
+        await setDoc(salesDocRef, { records: newRecords });
+        alert('削除しました。');
+      } catch(e) {
+        console.error(e);
+        alert('削除に失敗しました。');
+      }
+    };
+    // -------- ここまで --------
 
     window.resetSalesData = async () => {
       if (!auth.currentUser) return;
