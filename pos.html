@@ -1323,11 +1323,12 @@
       const container = document.getElementById('cart-items');
       container.innerHTML = '';
       let subtotal = 0;
-      const products = MASTER_PRODUCTS;
+      const products = window.getFullMasterProducts(window.customProductsData);
       
       Object.keys(cart).forEach(id => {
         const qty = cart[id];
         const p = products.find(x => x.id === id);
+        if (!p) return; // 安全ガード: 商品が見つからない場合はスキップ
         const inv = inventoryData[id] || { price: 0 };
         const price = inv.price * qty;
         subtotal += price;
@@ -1358,7 +1359,7 @@
       if (!auth.currentUser) return;
       if (Object.keys(cart).length === 0) return alert("カートが空です");
 
-      const products = MASTER_PRODUCTS;
+      const products = window.getFullMasterProducts(window.customProductsData);
       let subtotalAmount = 0;
       const items = [];
       let newInventory = { ...inventoryData };
