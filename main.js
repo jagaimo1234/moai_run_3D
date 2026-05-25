@@ -124,6 +124,23 @@ const happyMaterial = new THREE.MeshStandardMaterial({
 
 const yogurts = [];
 
+// 衰見モード: スプライトを吹き飛ばす
+function blastSprite(yogurt, index) {
+  yogurts.splice(index, 1);
+  blownSprites.push({
+    mesh: yogurt,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: 0.18 + Math.random() * 0.22,
+    vz: 0.35 + Math.random() * 0.3,
+    rx: (Math.random() - 0.5) * 0.25,
+    rz: (Math.random() - 0.5) * 0.25,
+  });
+  revengeScore++;
+  document.getElementById('current-score-val').innerText = revengeScore;
+  // モアイを一瞬光らせる
+  moai.traverse(c => { if (c.isMesh) { const orig = c.material.emissive?.getHex() ?? 0; c.material.emissive?.setHex(0xff2200); setTimeout(() => c.material.emissive?.setHex(orig), 120); } });
+}
+
 function spawnYogurt() {
   // スコア300以上なら確率で特殊キャラに差し替え
   let material = userMaterial;
@@ -229,6 +246,11 @@ let gameStarted = false; // ゲーム開始フラグ
 let spawnTimer = 0;
 let speed = 0.2; // 初速
 let score = 0; // スコア
+
+// ===== 吹き飛ばしモード =====
+let revengeMode = false;
+let revengeScore = 0;
+const blownSprites = []; // { mesh, vx, vy, vz, rx, rz }
 
 function updateBestDisplay() {
   // 表示の更新自体は index.html の Firebase 監視側で行うため、
@@ -343,25 +365,27 @@ function animate() {
 
     // 当たり判定
     const dx = yogurt.position.x - moai.position.x;
-    const dz = yogurt.position.z - moai.position.z; // moai.position.z は 0
-
-    // 距離チェック（少し余裕を持たせる）
+    const dz = yogurt.position.z - moai.position.z;
     if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.5) {
-      gameOver = true;
-      isPlayingBGM = false; // BGM停止
 
-      // 全スコアの履歴を保存（統計用）
+      // ===== 吹き飛ばしモード =====
+      if (revengeMode) {
+        blastSprite(yogurt, index);
+        return; // このイテレーション終了
+      }
+
+      // ===== 通常ゲームオーバー =====
+      gameOver = true;
+      isPlayingBGM = false;
+
       if (window.logScore) window.logScore(score);
 
-      // 記録更新チェック
       const isGlobalUpdate = score > (window.globalHighScore || 0);
       const isTodayUpdate = score > (window.todayGlobalBestScore || 0);
-
       if ((isGlobalUpdate || isTodayUpdate) && window.showNameInput) {
-        // 名前入力画面を表示
         window.showNameInput(score, isGlobalUpdate, isTodayUpdate);
       }
-      
+
       document.getElementById('start-screen').style.display = 'flex';
       document.getElementById('start-screen').style.opacity = '1';
       document.getElementById('start-screen').style.overflow = 'auto';
@@ -375,37 +399,62 @@ function animate() {
           <button class="retro-btn btn-insta" onclick="window.open('https://www.instagram.com/moataro_k/', '_blank')" aria-label="Instagram"></button>
         </div>
 
-        <!-- ▼▼▼ イベント情報の更新はここを書き換えてください（スタート画面と同じ内容にしてください） ▼▼▼ -->
+        <!-- 💥 吹き飛ばしモード選択 -->
+        <div onclick="event.stopPropagation()" style="
+          background: rgba(20,0,0,0.95);
+          border: 2px solid #ff3333;
+          border-radius: 14px;
+          padding: 20px 28px;
+          text-align: center;
+          max-width: 360px;
+          width: 90%;
+          margin-top: 4px;
+          z-index: 200;
+        ">
+          <div style="font-size:18px; color:#ff4444; font-weight:bold; line-height:1.6; margin-bottom:14px;">
+            😤 腹が立ってきた？<br>私を吹き飛ばしたい？
+          </div>
+          <div style="display:flex; gap:14px; justify-content:center;">
+            <button onclick="window.startRevengeMode()" style="
+              background: linear-gradient(135deg,#ff2200,#ff6600);
+              color:white; border:none;
+              padding:13px 30px; border-radius:10px;
+              font-size:17px; font-weight:bold;
+              cursor:pointer; letter-spacing:1px;
+              box-shadow: 0 4px 14px rgba(255,50,0,0.5);
+            ">はい 💥</button>
+            <button onclick="location.reload()" style="
+              background:#333; color:rgba(255,255,255,0.8);
+              border:1px solid #555;
+              padding:13px 30px; border-radius:10px;
+              font-size:17px; cursor:pointer;
+            ">いいえ</button>
+          </div>
+        </div>
+
+        <!-- ▼▼▼ イベント情報 ▼▼▼ -->
         <div style="width: 100%; max-width: 550px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; background: #000; z-index: 101;">
-            
             <div style="text-align: center; color: #fff; font-family: 'Outfit', sans-serif; font-weight: bold; text-shadow: 0px 2px 5px rgba(0,0,0,1);">
                 <div style="font-size: clamp(16px, 4.5vw, 22px); margin-bottom: 4px;">デザインフェスタvol.63</div>
                 <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">ブースNo. M-267</div>
                 <div style="font-size: clamp(14px, 4vw, 18px);">ブース名 Kanazawa Moataro</div>
             </div>
-            
-            <!-- MAPボタン & お品書きボタン（横並び） -->
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
                 <button onclick="event.stopPropagation(); window.open('booth_map_designfesta.jpg', '_blank')" style="
-                    background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.6); color: #fff; 
-                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px; 
+                    background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.6); color: #fff;
+                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
                     font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
-                    display: flex; align-items: center; gap: 6px; cursor: pointer; 
+                    display: flex; align-items: center; gap: 6px; cursor: pointer;
                     backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-                ">
-                    ブース位置を確認🗺️
-                </button>
+                ">ブース位置を確認🗺️</button>
                 <button onclick="event.stopPropagation(); location.href='catalog.html?v=20260517_2218'" style="
-                    background: rgba(0,210,255,0.15); border: 2px solid rgba(0,210,255,0.6); color: #00d2ff; 
-                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px; 
+                    background: rgba(0,210,255,0.15); border: 2px solid rgba(0,210,255,0.6); color: #00d2ff;
+                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
                     font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
-                    display: flex; align-items: center; gap: 6px; cursor: pointer; 
+                    display: flex; align-items: center; gap: 6px; cursor: pointer;
                     backdrop-filter: blur(4px); box-shadow: 0 4px 12px rgba(0,210,255,0.2);
-                ">
-                    📋 お品書き
-                </button>
+                ">📋 お品書き</button>
             </div>
-
         </div>
         <!-- ▲▲▲ イベント情報 ここまで ▲▲▲ -->
       `;
@@ -426,6 +475,21 @@ function animate() {
       yogurts.splice(index, 1);
     }
   });
+
+  // 吹き飛びスプライト更新 (衰見モード)
+  for (let i = blownSprites.length - 1; i >= 0; i--) {
+    const b = blownSprites[i];
+    b.mesh.position.x += b.vx;
+    b.mesh.position.y += b.vy;
+    b.mesh.position.z += b.vz;
+    b.mesh.rotation.x += b.rx;
+    b.mesh.rotation.z += b.rz;
+    b.vy -= 0.012; // 重力
+    if (b.mesh.position.z > 18 || b.mesh.position.y < -6) {
+      scene.remove(b.mesh);
+      blownSprites.splice(i, 1);
+    }
+  }
 
   renderer.render(scene, camera);
 }
@@ -543,3 +607,57 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ===== 吹き飛ばしモード起動 =====
+window.startRevengeMode = () => {
+  revengeMode = true;
+  revengeScore = 0;
+  gameOver = false;
+  speed = 0.35; // 少し速めにして爽快感を出す！
+  spawnTimer = 0;
+  isLookingBehind = false;
+  lookBehindTimer = 0;
+  targetRotationY = Math.PI / 2;
+
+  // スコア表示リセット
+  document.getElementById('current-score-val').innerText = 0;
+  
+  // スコア表示のラベルを「💥 撃破数」的なものに変える（遊び心）
+  const scoreLabel = document.querySelector('.score-label') || document.getElementById('score-label');
+  if (scoreLabel) {
+    scoreLabel.innerHTML = 'BLASTS: <span id="current-score-val">0</span>';
+  } else {
+    // もしラベル要素がなければ作成するか、既存の表示を更新
+    const curVal = document.getElementById('current-score-val');
+    if (curVal) curVal.innerText = 0;
+  }
+
+  // 既存のオブジェクトを全削除
+  yogurts.forEach(y => scene.remove(y));
+  yogurts.length = 0;
+  blownSprites.forEach(b => scene.remove(b.mesh));
+  blownSprites.length = 0;
+
+  // モアイ位置リセット
+  moai.position.set(0, 0, 0);
+  moai.rotation.z = 0;
+
+  // スタート画面を非表示
+  document.getElementById('start-screen').style.display = 'none';
+
+  // AudioContext再開
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
+  isPlayingBGM = true;
+  nextNoteTime = audioCtx.currentTime;
+  scheduleMusic();
+
+  if (!gameStarted) {
+    gameStarted = true;
+    animate();
+  }
+  gameStarted = true;
+};
+
