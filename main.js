@@ -124,7 +124,7 @@ const happyMaterial = new THREE.MeshStandardMaterial({
 
 const yogurts = [];
 
-// 衰見モード: スプライトを吹き飛ばす
+// 吹き飛ばしモード: スプライトを吹き飛ばす
 function blastSprite(yogurt, index) {
   yogurts.splice(index, 1);
   blownSprites.push({
@@ -139,6 +139,11 @@ function blastSprite(yogurt, index) {
   document.getElementById('current-score-val').innerText = revengeScore;
   // モアイを一瞬光らせる
   moai.traverse(c => { if (c.isMesh) { const orig = c.material.emissive?.getHex() ?? 0; c.material.emissive?.setHex(0xff2200); setTimeout(() => c.material.emissive?.setHex(orig), 120); } });
+
+  // 作者（特殊ではない通常スプライト）に当たったときだけ悲鳴を再生
+  if (yogurt.userData && !yogurt.userData.isSpecial) {
+    playUserVoice();
+  }
 }
 
 function spawnYogurt() {
@@ -496,6 +501,31 @@ function animate() {
 
 // ===== 8-bit BGM Generator =====
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// ===== 作者の悲鳴（uservoice.m4a）のロード =====
+let userVoiceBuffer = null;
+fetch('./uservoice.m4a')
+  .then(res => res.arrayBuffer())
+  .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
+  .then(buffer => {
+    userVoiceBuffer = buffer;
+    console.log("🔊 uservoice.m4a loaded successfully!");
+  })
+  .catch(err => {
+    console.warn("⚠️ Failed to load uservoice.m4a:", err);
+  });
+
+function playUserVoice() {
+  if (!userVoiceBuffer || !audioCtx) return;
+  // AudioContextが中断している場合は再開する
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = userVoiceBuffer;
+  source.connect(audioCtx.destination);
+  source.start(0);
+}
 
 function playNote(frequency, duration, time) {
   const osc = audioCtx.createOscillator();
