@@ -675,6 +675,10 @@ window.startRevengeMode = () => {
   // スタート画面を非表示
   document.getElementById('start-screen').style.display = 'none';
 
+  // 💥 スッキリしたボタンを表示
+  const backBtn = document.getElementById('revenge-back-btn');
+  if (backBtn) backBtn.style.display = 'block';
+
   // AudioContext再開
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
@@ -690,4 +694,11 @@ window.startRevengeMode = () => {
   }
   gameStarted = true;
 };
+
+// ===== スタート画面に戻る =====
+window.stopRevengeMode = () => {
+  // ページを再読み込みして完全にクリーンな初期スタート画面に戻る
+  location.reload();
+};
+
 
