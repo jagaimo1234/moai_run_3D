@@ -61,7 +61,7 @@ gltfLoader.load(
     // ここでは仮にスケールを調整
     model.scale.set(1.5, 1.5, 1.5);
     model.position.y = 0;
-    model.rotation.y = Math.PI; // 正面を向かせる（モデルによる）
+    model.rotation.y = Math.PI / 2; // 山まの前方が+X軸なので、-Z（画面山）に向けるにはPI/2
 
     // 既存のコンテンツ（フォールバック）を削除
     while (moai.children.length > 0) {
@@ -241,7 +241,7 @@ setTimeout(updateBestDisplay, 1500);
 
 let lookBehindTimer = 0;
 let isLookingBehind = false;
-let targetRotationY = Math.PI; // デフォルトは後ろ向き（カメラとは逆）
+let targetRotationY = Math.PI / 2; // デフォルトは画面山を向く（-Z方向）
 
 function animate() {
   requestAnimationFrame(animate);
@@ -262,7 +262,7 @@ function animate() {
   if (!isLookingBehind && Math.random() < 0.002) {
     isLookingBehind = true;
     lookBehindTimer = 120; // 2秒くらい見つめる
-    targetRotationY = 0;   // カメラの方を向く（0 rad）
+    targetRotationY = -Math.PI / 2; // カメラの方を向く（+Z方向）
 
     // 演出: 音楽を少し不穏にする？ (ピッチを下げる)
     // audioCtx.playbackRate... は難しいので、BGM生成側のtempoを一時的に変えるなど
@@ -273,7 +273,7 @@ function animate() {
     lookBehindTimer--;
     if (lookBehindTimer <= 0) {
       isLookingBehind = false;
-      targetRotationY = Math.PI; // 前を向く
+      targetRotationY = Math.PI / 2; // 前を向く（-Z）
     }
   }
 
