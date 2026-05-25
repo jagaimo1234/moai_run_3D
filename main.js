@@ -257,23 +257,43 @@ function animate() {
     // 表示の更新は Firebase の onValue で自動で行われるため、ここでは保存せず通知だけ待つ
   }
 
-  // ----- ホラー要素: 振り返る (Look Behind) -----
-  // ランダムに発生 (確率調整: 0.2% / frame -> 500frameに1回くらい)
-  if (!isLookingBehind && Math.random() < 0.002) {
-    isLookingBehind = true;
-    lookBehindTimer = 120; // 2秒くらい見つめる
-    targetRotationY = -Math.PI / 2; // 挙り返り: カメラ側（+Z）
+  // ----- キョロキョロ演出: ランダムにあちこちを向く -----
+  // 向きの候補: 前・後・左・右・斜め各種
+  const LOOK_DIRS = [
+    { rot: Math.PI / 2,       label: '前' },         // 山子山の後・画面山
+    { rot: -Math.PI / 2,      label: '後ろ(カメラ)' }, // プレイヤー側
+    { rot: 0,                 label: '左' },
+    { rot: Math.PI,           label: '右' },
+    { rot: Math.PI / 4,       label: '左斜め山子山' },
+    { rot: -Math.PI / 4,      label: '左斜め後〰8' },
+    { rot: Math.PI * 3 / 4,   label: '右斜め山子山' },
+    { rot: -Math.PI * 3 / 4,  label: '右斜め後ろ' },
+  ];
 
-    // 演出: 音楽を少し不穏にする？ (ピッチを下げる)
-    // audioCtx.playbackRate... は難しいので、BGM生成側のtempoを一時的に変えるなど
-    // ここではシンプルに「操作不能」の恐怖を優先
+  if (!isLookingBehind && Math.random() < 0.003) {
+    isLookingBehind = true;
+    // まず山子山の方向以外からランダムに選ぶ
+    const choices = LOOK_DIRS.filter(d => Math.abs(d.rot - Math.PI / 2) > 0.1);
+    const picked = choices[Math.floor(Math.random() * choices.length)];
+    targetRotationY = picked.rot;
+
+    // 向く時間もランダム: 40フレーム〜180フレーム
+    lookBehindTimer = 40 + Math.floor(Math.random() * 140);
   }
 
   if (isLookingBehind) {
     lookBehindTimer--;
     if (lookBehindTimer <= 0) {
-      isLookingBehind = false;
-      targetRotationY = Math.PI / 2; // 正面に戻る（-Z）
+      // たまに連続して別の方向を向く（行動がコミカルになる）
+      if (Math.random() < 0.3) {
+        const choices = LOOK_DIRS.filter(d => Math.abs(d.rot - Math.PI / 2) > 0.1 && Math.abs(d.rot - targetRotationY) > 0.1);
+        const picked = choices[Math.floor(Math.random() * choices.length)];
+        targetRotationY = picked.rot;
+        lookBehindTimer = 30 + Math.floor(Math.random() * 60);
+      } else {
+        isLookingBehind = false;
+        targetRotationY = Math.PI / 2; // 前に戻る
+      }
     }
   }
 
