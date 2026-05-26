@@ -438,6 +438,18 @@
     </div>
   </div>
 
+  <!-- Edit Topics Modal -->
+  <div id="topics-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:#1e1e2e; padding:20px; border-radius:16px; width:95%; max-width:600px; border:1px solid rgba(255,255,255,0.1);">
+      <h3 style="margin-bottom:15px; font-size:16px; color:#fff;">HOT TOPICS & NEWS (HTML) の編集</h3>
+      <textarea id="topics-textarea" rows="18" style="width:100%; background:rgba(0,0,0,0.5); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:12px; margin-bottom:15px; font-family:monospace; font-size:13px; resize:vertical; box-sizing:border-box;"></textarea>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button onclick="document.getElementById('topics-modal').style.display='none'" style="padding:8px 16px; background:transparent; border:none; color:#888; cursor:pointer;">キャンセル</button>
+        <button id="topics-save-btn" style="padding:8px 24px; background:#00d2ff; color:#000; border:none; border-radius:20px; font-weight:bold; cursor:pointer;">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Event Tabs -->
   <div class="event-tabs" id="event-tabs"></div>
   <div class="item-count" id="item-count"></div>
@@ -680,7 +692,11 @@
       document.getElementById('item-count').innerHTML = countHtml;
 
       // Hero Container
-      document.getElementById('tab-hero-container').innerHTML = eventData.heroHtml || '';
+      if (window.renderHero) {
+        window.renderHero();
+      } else {
+        document.getElementById('tab-hero-container').innerHTML = eventData.heroHtml || '';
+      }
 
       // --- Tile ---
       const tileGrid = document.getElementById('tile-grid');
@@ -1159,7 +1175,20 @@
     let badgesData = {};
     let descriptionsData = {};
     let announcementsData = {};
+    let topicsData = {};
     let currentEditingProductId = null;
+
+    // Listen to topics
+    onSnapshot(doc(db, "settings", "topics"), (docSnap) => {
+      if (docSnap.exists()) {
+        topicsData = docSnap.data();
+      } else {
+        topicsData = {};
+      }
+      if (window.renderHero) window.renderHero();
+    }, (error) => {
+      console.error("Firestore topics read error:", error);
+    });
 
     // Listen to hidden products
     onSnapshot(doc(db, "settings", "hidden_products"), (docSnap) => {
@@ -1414,6 +1443,89 @@
       }
     });
 
+    // ===== Hero Announcements (Topics) Render & Edit =====
+    window.renderHero = function() {
+      const allEvents = window.getAllEvents(window.eventConfigData);
+      const eventData = allEvents[currentEventKey];
+      const container = document.getElementById('tab-hero-container');
+      if (!container) return;
+
+      if (!eventData || currentEventKey === 'moairoom') {
+        container.innerHTML = '';
+        return;
+      }
+
+      // 1. Get custom topics HTML or fallback to static heroHtml from data.js
+      let heroHtml = topicsData[currentEventKey];
+      if (heroHtml === undefined) {
+        heroHtml = eventData.heroHtml || '';
+      }
+
+      // 2. Set innerHTML
+      container.innerHTML = heroHtml;
+
+      // 3. Add an "Edit Hero HTML" button if in admin-mode!
+      if (document.body.classList.contains('admin-mode') && auth.currentUser) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'admin-edit-hero-btn';
+        editBtn.style.cssText = `
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          background: rgba(0, 0, 0, 0.8);
+          color: #00d2ff;
+          border: 1px solid #00d2ff;
+          padding: 6px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: bold;
+          z-index: 100;
+          transition: 0.2s;
+        `;
+        editBtn.innerHTML = '📋 トピックス編集';
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          window.openHeroEditor();
+        };
+        container.style.position = 'relative';
+        container.appendChild(editBtn);
+      }
+    };
+
+    window.openHeroEditor = () => {
+      if (!auth.currentUser) return;
+      const allEvents = window.getAllEvents(window.eventConfigData);
+      const eventData = allEvents[currentEventKey];
+      if (!eventData) return;
+      
+      let currentHtml = topicsData[currentEventKey];
+      if (currentHtml === undefined) {
+        currentHtml = eventData.heroHtml || '';
+      }
+      
+      document.getElementById('topics-textarea').value = currentHtml;
+      document.getElementById('topics-modal').style.display = 'flex';
+    };
+
+    document.getElementById('topics-save-btn').addEventListener('click', async () => {
+      const newHtml = document.getElementById('topics-textarea').value;
+      const prevHtml = topicsData[currentEventKey];
+      
+      topicsData[currentEventKey] = newHtml;
+      window.renderHero();
+      document.getElementById('topics-modal').style.display = 'none';
+
+      try {
+        await setDoc(doc(db, "settings", "topics"), topicsData);
+      } catch (e) {
+        console.error("Firestore write error:", e);
+        alert("保存に失敗しました（" + e.message + "）。\nFirebaseのルール設定を確認してください。");
+        topicsData[currentEventKey] = prevHtml;
+        window.renderHero();
+      }
+    });
+
     // Admin Auth Logic
     const adminModal = document.getElementById('admin-modal');
     // Secret trigger: Double click on the page hero title instead of the header
@@ -1456,6 +1568,7 @@
       } else {
         document.body.classList.remove('admin-mode');
       }
+      if (window.renderHero) window.renderHero();
     });
 
     window.addEventListener('viewsBuilt', () => {
