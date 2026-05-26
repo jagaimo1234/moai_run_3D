@@ -310,6 +310,13 @@ const EVENTS = {
     defaultStatus: 'hidden',
     products: []
   },
+  designfesta: {
+    label: 'デザインフェスタ',
+    defaultStatus: 'hidden',
+    products: [
+      ...MASTER_PRODUCTS
+    ]
+  },
   hmj: {
     label: 'HMJ 7/11,12',
     heroHtml: `
