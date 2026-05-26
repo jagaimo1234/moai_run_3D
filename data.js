@@ -310,8 +310,8 @@ const EVENTS = {
     defaultStatus: 'hidden',
     products: []
   },
-  designfesta: {
-    label: 'デザインフェスタ',
+  hmj: {
+    label: 'HMJ 7/11,12',
     heroHtml: `
       <div class="topics-container">
         <div class="topics-header">
@@ -412,7 +412,7 @@ const EVENTS = {
 };
 
 // デフォルトで最初に選択されるイベント
-const DEFAULT_EVENT = 'designfesta';
+const DEFAULT_EVENT = 'hmj';
 
 // 全ての作品に自動でidを付与（画像パスから生成）
 function assignIds(list) {

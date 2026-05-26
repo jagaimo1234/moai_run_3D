@@ -440,19 +440,20 @@ function animate() {
         <!-- ▼▼▼ イベント情報 ▼▼▼ -->
         <div style="width: 100%; max-width: 550px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; background: #000; z-index: 101;">
             <div style="text-align: center; color: #fff; font-family: 'Outfit', sans-serif; font-weight: bold; text-shadow: 0px 2px 5px rgba(0,0,0,1);">
-                <div style="font-size: clamp(16px, 4.5vw, 22px); margin-bottom: 4px;">デザインフェスタvol.63</div>
-                <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">ブースNo. M-267</div>
-                <div style="font-size: clamp(14px, 4vw, 18px);">ブース名 Kanazawa Moataro</div>
+                <div style="font-size: clamp(16px, 4.5vw, 22px); margin-bottom: 4px;">HMJ（ハンドメイドインジャパン）</div>
+                <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">日程: 7月11日(土)・12日(日)</div>
+                <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">会場: 東京ビッグサイト</div>
+                <div style="font-size: clamp(14px, 4vw, 18px);">ブースNo: 後日発表！ (Kanazawa Moataro)</div>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="event.stopPropagation(); window.open('booth_map_designfesta.jpg', '_blank')" style="
+                <button onclick="event.stopPropagation(); window.open('https://hmj-fes.jp/', '_blank')" style="
                     background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.6); color: #fff;
                     padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
                     font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
                     display: flex; align-items: center; gap: 6px; cursor: pointer;
                     backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-                ">ブース位置を確認🗺️</button>
-                <button onclick="event.stopPropagation(); location.href='catalog.html?v=20260517_2218'" style="
+                ">HMJ公式サイト 🌐</button>
+                <button onclick="event.stopPropagation(); location.href='catalog.html?v=20260526_1'" style="
                     background: rgba(0,210,255,0.15); border: 2px solid rgba(0,210,255,0.6); color: #00d2ff;
                     padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
                     font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
