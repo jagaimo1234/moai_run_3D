@@ -258,6 +258,20 @@
               <div style="display:flex; justify-content:space-between;"><span>📱 PayPay:</span> <span id="dash-paypay">¥0</span></div>
               <div style="display:flex; justify-content:space-between;"><span>💳 クレジット:</span> <span id="dash-credit">¥0</span></div>
             </div>
+            
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+              <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                <span>🎯 目標達成率:</span>
+                <span id="dash-achievement-rate" style="font-weight: bold; color: var(--accent);">0%</span>
+              </div>
+              <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; position: relative;">
+                <div id="dash-achievement-bar" style="background: linear-gradient(90deg, var(--accent), #00b8e6); width: 0%; height: 100%; border-radius: 4px; transition: width 0.5s ease-out;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">
+                <span>目標: <span id="dash-target-val">¥0</span></span>
+                <span id="dash-achievement-diff">あと ¥0</span>
+              </div>
+            </div>
           </div>
           <div style="background: var(--panel-bg); padding: 20px; border-radius: 12px;">
             <h3>顧客サマリー</h3>
@@ -855,6 +869,9 @@
         
         loadPatternToUI(currentPatternId);
         renderSettings(); // Re-render to show adopted quantities
+        if (window.updateAchievementRate) {
+          window.updateAchievementRate();
+        }
       });
 
       // Listen to stock for global toggle and manual status
@@ -1048,9 +1065,61 @@
         } else {
           prodSalesDiv.innerHTML = 'データがありません';
         }
+        
+        if (window.updateAchievementRate) {
+          window.updateAchievementRate(total);
+        }
         updateStats();
       });
     }
+
+    window.updateAchievementRate = function(totalSales) {
+      if (totalSales === undefined) {
+        totalSales = window.currentSalesTotal || 0;
+      } else {
+        window.currentSalesTotal = totalSales;
+      }
+
+      const activePatId = currentSimulationData?.activePatternId || 'default';
+      const targetAmount = currentSimulationData?.patterns?.[activePatId]?.target || 150000;
+
+      const rate = targetAmount > 0 ? Math.round((totalSales / targetAmount) * 100) : 0;
+      const diff = targetAmount - totalSales;
+
+      const rateEl = document.getElementById('dash-achievement-rate');
+      const barEl = document.getElementById('dash-achievement-bar');
+      const targetValEl = document.getElementById('dash-target-val');
+      const diffEl = document.getElementById('dash-achievement-diff');
+
+      if (rateEl) {
+        rateEl.textContent = `${rate}%`;
+        if (rate >= 100) {
+          rateEl.style.color = 'var(--success)';
+          if (barEl) barEl.style.background = 'linear-gradient(90deg, #2ecc71, #27ae60)';
+        } else if (rate >= 50) {
+          rateEl.style.color = '#f1c40f';
+          if (barEl) barEl.style.background = 'linear-gradient(90deg, #f1c40f, #e67e22)';
+        } else {
+          rateEl.style.color = 'var(--accent)';
+          if (barEl) barEl.style.background = 'linear-gradient(90deg, var(--accent), #00b8e6)';
+        }
+      }
+      if (barEl) {
+        barEl.style.width = `${Math.min(100, rate)}%`;
+      }
+      if (targetValEl) {
+        targetValEl.textContent = `¥${targetAmount.toLocaleString()}`;
+      }
+      if (diffEl) {
+        if (diff > 0) {
+          diffEl.textContent = `あと ¥${diff.toLocaleString()}`;
+          diffEl.style.color = 'rgba(255,255,255,0.5)';
+        } else {
+          diffEl.textContent = `🎉 目標達成！ (+¥${Math.abs(diff).toLocaleString()})`;
+          diffEl.style.color = 'var(--success)';
+        }
+      }
+    };
 
     window.updateStats = function() {
       const statsRef = refDB(rdb, 'stats');
