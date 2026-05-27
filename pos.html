@@ -988,7 +988,16 @@
             // Product sales aggregation
             if (r.items) {
               r.items.forEach(item => {
-                productSales[item.name] = (productSales[item.name] || 0) + item.qty;
+                let pId = item.id;
+                if (!pId) {
+                  const found = window.getFullMasterProducts(window.customProductsData).find(x => x.name.replace(/\n/g, ' ') === item.name);
+                  if (found) pId = found.id;
+                }
+                if (pId) {
+                  productSales[pId] = (productSales[pId] || 0) + item.qty;
+                } else {
+                  productSales[item.name] = (productSales[item.name] || 0) + item.qty;
+                }
               });
             }
             
@@ -1051,15 +1060,68 @@
           summaryDiv.innerHTML = 'データがありません';
         }
         
-        // Render Product Sales
+        // Render Product Sales and Consumption Rates
         const prodSalesDiv = document.getElementById('dash-product-sales');
         let prodSalesHtml = '';
-        if (Object.keys(productSales).length > 0) {
-          Object.entries(productSales).sort((a,b)=>b[1]-a[1]).forEach(([name, qty]) => {
-            prodSalesHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding:4px 0;">
-              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${name}</span> 
-              <span style="font-weight:bold; color:var(--accent);">${qty}個</span>
-            </div>`;
+        
+        const activeProducts = getActiveProducts(true);
+        const activePatId = currentSimulationData?.activePatternId || 'default';
+        const prepMap = currentSimulationData?.patterns?.[activePatId]?.prepQty || {};
+        
+        const productsWithData = activeProducts.map(p => {
+          const soldQty = (productSales[p.id] || 0) + (productSales[p.name.replace(/\n/g, ' ')] || 0);
+          const prepQty = prepMap[p.id] || 0;
+          const rate = prepQty > 0 ? Math.round((soldQty / prepQty) * 100) : 0;
+          return { p, soldQty, prepQty, rate };
+        });
+        
+        productsWithData.sort((a, b) => {
+          if (b.soldQty !== a.soldQty) return b.soldQty - a.soldQty;
+          return b.rate - a.rate;
+        });
+
+        const itemsToDisplay = productsWithData.filter(x => x.soldQty > 0 || x.prepQty > 0);
+        
+        if (itemsToDisplay.length > 0) {
+          itemsToDisplay.forEach(({ p, soldQty, prepQty, rate }) => {
+            const cleanName = p.name.replace(/\n/g, ' ');
+            let rateHtml = '';
+            let progressHtml = '';
+            
+            if (prepQty > 0) {
+              let rateColor = 'rgba(255,255,255,0.7)';
+              let barColor = 'var(--accent)';
+              if (rate >= 100) {
+                rateColor = 'var(--success)';
+                barColor = 'var(--success)';
+              } else if (rate >= 50) {
+                rateColor = '#f1c40f';
+                barColor = '#f1c40f';
+              }
+              
+              rateHtml = `<span style="font-weight:bold; color:${rateColor}; font-size:12px; margin-left:8px;">${rate}%</span>`;
+              
+              progressHtml = `
+                <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; margin-top: 4px; width: 100%;">
+                  <div style="background: ${barColor}; width: ${Math.min(100, rate)}%; height: 100%; border-radius: 2px;"></div>
+                </div>
+              `;
+            } else {
+              rateHtml = `<span style="color:rgba(255,255,255,0.3); font-size:11px; margin-left:8px;">-</span>`;
+            }
+            
+            prodSalesHtml += `
+              <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; display: flex; flex-direction: column; align-items: flex-start;">
+                <div style="display: flex; justify-content: space-between; width: 100%; font-size: 13px;">
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%; font-weight: 500;">${cleanName}</span>
+                  <div style="display: flex; align-items: center;">
+                    <span style="font-weight:bold; color:var(--accent);">${soldQty}個<span style="font-weight:normal; color:rgba(255,255,255,0.4); font-size:11px;">/${prepQty || '-'}</span></span>
+                    ${rateHtml}
+                  </div>
+                </div>
+                ${progressHtml}
+              </div>
+            `;
           });
           prodSalesDiv.innerHTML = prodSalesHtml;
         } else {
