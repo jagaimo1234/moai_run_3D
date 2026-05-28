@@ -98,12 +98,17 @@ userMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide
 });
 
-// 新しい敵: moai_shot (スコア300以上で混入)
+// 金のモアイ: moai_shot (超低確率で混入。Three.jsマテリアルに黄金の輝きを追加！)
 const moaiShotTexture = textureLoader.load('./moai_shot.png');
 const moaiShotMaterial = new THREE.MeshStandardMaterial({
   map: moaiShotTexture,
   transparent: true,
-  side: THREE.DoubleSide
+  side: THREE.DoubleSide,
+  emissive: new THREE.Color(0xffd700), // 黄金の自己発光
+  emissiveMap: moaiShotTexture,
+  emissiveIntensity: 0.35, // 神々しい発光
+  metalness: 0.8, // 金属的な反射
+  roughness: 0.15 // なめらかな光沢
 });
 
 // レアな敵: happy (スコア300以上で5%の確率)
@@ -129,16 +134,38 @@ function blastSprite(yogurt, index) {
   yogurts.splice(index, 1);
   blownSprites.push({
     mesh: yogurt,
-    vx: (Math.random() - 0.5) * 0.5,
-    vy: 0.18 + Math.random() * 0.22,
-    vz: 0.35 + Math.random() * 0.3,
-    rx: (Math.random() - 0.5) * 0.25,
-    rz: (Math.random() - 0.5) * 0.25,
+    vx: (Math.random() - 0.5) * 0.6,
+    vy: 0.22 + Math.random() * 0.25,
+    vz: 0.4 + Math.random() * 0.35,
+    rx: (Math.random() - 0.5) * 0.4,
+    rz: (Math.random() - 0.5) * 0.4,
   });
-  revengeScore++;
+
+  const isGold = yogurt.userData && yogurt.userData.isGoldenMoai;
+  if (isGold) {
+    // 💥 金のモアイを撃破！撃破数+10の超絶ビッグボーナス！
+    revengeScore += 10;
+    // モアイ全体を黄金にまばゆく輝かせる演出！
+    moai.traverse(c => { 
+      if (c.isMesh) { 
+        const orig = c.material.emissive?.getHex() ?? 0; 
+        c.material.emissive?.setHex(0xffd700); 
+        setTimeout(() => c.material.emissive?.setHex(orig), 400); 
+      } 
+    });
+  } else {
+    revengeScore++;
+    // 通常の赤色発光
+    moai.traverse(c => { 
+      if (c.isMesh) { 
+        const orig = c.material.emissive?.getHex() ?? 0; 
+        c.material.emissive?.setHex(0xff2200); 
+        setTimeout(() => c.material.emissive?.setHex(orig), 120); 
+      } 
+    });
+  }
+
   document.getElementById('current-score-val').innerText = revengeScore;
-  // モアイを一瞬光らせる
-  moai.traverse(c => { if (c.isMesh) { const orig = c.material.emissive?.getHex() ?? 0; c.material.emissive?.setHex(0xff2200); setTimeout(() => c.material.emissive?.setHex(orig), 120); } });
 
   // 作者（特殊ではない通常スプライト）に当たったときだけ悲鳴を再生
   if (yogurt.userData && !yogurt.userData.isSpecial) {
@@ -147,29 +174,36 @@ function blastSprite(yogurt, index) {
 }
 
 function spawnYogurt() {
-  // スコア300以上なら確率で特殊キャラに差し替え
   let material = userMaterial;
   let isSpecial = false;
+  let isGoldenMoai = false;
   
-  if (score > 300) {
-    const rand = Math.random();
-    if (rand < 0.05) {
+  const rand = Math.random();
+  if (rand < 0.007) { // 0.7%の超低確率で「金のモアイ」が流れる！
+    material = moaiShotMaterial;
+    isSpecial = true;
+    isGoldenMoai = true;
+  } else if (score > 300) {
+    // スコア300以上なら確率で特殊キャラに差し替え
+    const specialRand = Math.random();
+    if (specialRand < 0.05) {
       // 5% の確率で happy
       material = happyMaterial;
-      isSpecial = true;
-    } else if (rand < 0.15) {
-      // 10% の確率で moai_shot (0.05〜0.15の範囲)
-      material = moaiShotMaterial;
       isSpecial = true;
     }
   }
 
   const yogurt = new THREE.Mesh(userGeometry, material);
-  yogurt.userData.isSpecial = isSpecial; // 念のため属性を持たせておく
+  yogurt.userData.isSpecial = isSpecial;
+  yogurt.userData.isGoldenMoai = isGoldenMoai; // 金のモアイ判定用
+
+  if (isGoldenMoai) {
+    yogurt.scale.set(1.4, 1.4, 1.4); // 金のモアイは1.4倍サイズ！存在感が抜群！
+  }
 
   yogurt.position.set(
     (Math.random() - 0.5) * 6,
-    1.2, // 地面より少し上（足元が地面に付くくらい）
+    1.2, // 地面より少し上
     -20  // 遠くから
   );
 
@@ -365,8 +399,18 @@ function animate() {
   yogurts.forEach((yogurt, index) => {
     yogurt.position.z += speed;
 
-    // 回転演出
-    yogurt.rotation.y += 0.05;
+    if (yogurt.userData && yogurt.userData.isGoldenMoai) {
+      // 金のモアイの回転＆拡大縮小アニメーション（プレミアム演出！）
+      // 左右にゆらゆら揺れながら、神々しく回転し、呼吸するように鼓動する
+      yogurt.rotation.y += 0.08;
+      yogurt.rotation.z = Math.sin(Date.now() * 0.006) * 0.25;
+      
+      const pulseScale = 1.4 + Math.sin(Date.now() * 0.015) * 0.18;
+      yogurt.scale.set(pulseScale, pulseScale, pulseScale);
+    } else {
+      // 通常の回転演出
+      yogurt.rotation.y += 0.05;
+    }
 
     // 当たり判定
     const dx = yogurt.position.x - moai.position.x;
@@ -391,6 +435,8 @@ function animate() {
         window.showNameInput(score, isGlobalUpdate, isTodayUpdate);
       }
 
+      const hitByGold = yogurt.userData && yogurt.userData.isGoldenMoai;
+
       document.getElementById('start-screen').style.display = 'flex';
       document.getElementById('start-screen').style.opacity = '1';
       document.getElementById('start-screen').style.overflow = 'auto';
@@ -403,6 +449,29 @@ function animate() {
           <button class="retro-btn btn-x" onclick="window.open('https://x.com/kanazawamoataro', '_blank')" aria-label="Twitter/X"></button>
           <button class="retro-btn btn-insta" onclick="window.open('https://www.instagram.com/moataro_k/', '_blank')" aria-label="Instagram"></button>
         </div>
+
+        ${hitByGold ? `
+        <!-- 👑 金のモアイに衝突した際のプレミアムな特別演出バッジ！ -->
+        <div style="
+          background: linear-gradient(135deg, #ffd700 0%, #ffa500 50%, #ff8c00 100%);
+          color: #000;
+          font-weight: 900;
+          font-family: 'Outfit', 'Inter', sans-serif;
+          padding: 10px 22px;
+          border-radius: 50px;
+          margin-top: 15px;
+          box-shadow: 0 0 20px #ffd700, inset 0 0 8px rgba(255,255,255,0.6);
+          font-size: clamp(14px, 4.5vw, 18px);
+          animation: pulse 1.5s infinite;
+          z-index: 102;
+          text-align: center;
+          border: 2px solid #fff;
+          letter-spacing: 1px;
+          text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+        ">
+          👑 奇跡！幻の「金のモアイ」に衝突した！ 👑
+        </div>
+        ` : ''}
 
         <!-- 💥 吹き飛ばしモード選択 -->
         <div onclick="event.stopPropagation()" style="
