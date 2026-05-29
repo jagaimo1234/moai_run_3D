@@ -575,7 +575,6 @@ function animate() {
           </div>
         </div>
         ` : ''}
-        ` : ''}
 
         <!-- 💥 吹き飛ばしモード選択 -->
         <div onclick="event.stopPropagation()" style="
