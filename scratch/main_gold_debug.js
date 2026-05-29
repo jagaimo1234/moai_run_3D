@@ -496,6 +496,71 @@ function animate() {
               <!-- JSで動的に更新されます -->
             </div>
           </div>
+
+          <!-- 極秘商品の予告リスト -->
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; text-align: left;">
+            <div style="font-size: 11px; color: #ffd700; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; text-align: center; text-shadow: 0 0 5px rgba(255,215,0,0.3);">🔑 特別優待品ラインナップ（予告） 🔑</div>
+            
+            <!-- ① -->
+            <div style="
+              background: rgba(0,0,0,0.5);
+              border: 1px dashed rgba(255,215,0,0.25);
+              border-radius: 10px;
+              padding: 10px 12px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              opacity: 0.85;
+            ">
+              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット</span>
+              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
+            </div>
+
+            <!-- ② -->
+            <div style="
+              background: rgba(0,0,0,0.5);
+              border: 1px dashed rgba(255,215,0,0.25);
+              border-radius: 10px;
+              padding: 10px 12px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              opacity: 0.85;
+            ">
+              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">② モアイロボMark2専用 神スタンド</span>
+              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
+            </div>
+
+            <!-- ③ -->
+            <div style="
+              background: rgba(0,0,0,0.5);
+              border: 1px dashed rgba(255,215,0,0.25);
+              border-radius: 10px;
+              padding: 10px 12px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              opacity: 0.85;
+            ">
+              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">③ ミニおすわりモアイキーホルダー</span>
+              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
+            </div>
+
+            <!-- ④ -->
+            <div style="
+              background: rgba(0,0,0,0.5);
+              border: 1px dashed rgba(255,215,0,0.25);
+              border-radius: 10px;
+              padding: 10px 12px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              opacity: 0.85;
+            ">
+              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">④ まちょいモアイメガネスタンド</span>
+              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
+            </div>
+          </div>
           
           <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 15px; line-height: 1.5;">
             ※18:00以降に再び「金のモアイ」に出会うと、特別優待品【各7セット限定】の極秘ショップがアンロックされるぞ！
