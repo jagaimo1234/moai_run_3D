@@ -179,10 +179,11 @@ function spawnYogurt() {
   let isGoldenMoai = false;
   
   const rand = Math.random();
-  if (rand < 0.007) { // 0.7%の超低確率で「金のモアイ」が流れる！
+  if (rand < 0.007 || window.debugForceGold) { // 0.7%の超低確率で「金のモアイ」が流れる！(デバッグキー有効時も含む)
     material = moaiShotMaterial;
     isSpecial = true;
     isGoldenMoai = true;
+    window.debugForceGold = false; // フラグをリセット
   } else if (score > 300) {
     // スコア300以上なら確率で特殊キャラに差し替え
     const specialRand = Math.random();
@@ -221,6 +222,10 @@ let moveRight = false;
 window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "a") moveLeft = true;
   if (e.key === "ArrowRight" || e.key === "d") moveRight = true;
+  if (e.key.toLowerCase() === "g") {
+    window.debugForceGold = true;
+    console.log("🔒 Debug: Next obstacle forced to Golden Moai!");
+  }
 });
 window.addEventListener("keyup", (e) => {
   if (e.key === "ArrowLeft" || e.key === "a") moveLeft = false;
@@ -451,26 +456,125 @@ function animate() {
         </div>
 
         ${hitByGold ? `
-        <!-- 👑 金のモアイに衝突した際のプレミアムな特別演出バッジ！ -->
-        <div style="
-          background: linear-gradient(135deg, #ffd700 0%, #ffa500 50%, #ff8c00 100%);
-          color: #000;
-          font-weight: 900;
-          font-family: 'Outfit', 'Inter', sans-serif;
-          padding: 10px 22px;
-          border-radius: 50px;
+        <!-- 👑 金のモアイ衝突特典！極秘シークレット直売所 👑 -->
+        <div onclick="event.stopPropagation()" style="
+          background: linear-gradient(135deg, rgba(15,10,2,0.99) 0%, rgba(38,28,8,0.97) 100%);
+          border: 3px double #ffd700;
+          border-radius: 20px;
+          padding: 24px 20px;
           margin-top: 15px;
-          box-shadow: 0 0 20px #ffd700, inset 0 0 8px rgba(255,255,255,0.6);
-          font-size: clamp(14px, 4.5vw, 18px);
-          animation: pulse 1.5s infinite;
+          box-shadow: 0 0 40px rgba(255,215,0,0.5), inset 0 0 20px rgba(255,215,0,0.2);
+          max-width: 500px;
+          width: 92%;
           z-index: 102;
           text-align: center;
-          border: 2px solid #fff;
-          letter-spacing: 1px;
-          text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+          font-family: 'Outfit', 'Inter', 'DotGothic16', sans-serif;
         ">
-          👑 奇跡！幻の「金のモアイ」に衝突した！ 👑
+          <div style="font-size: clamp(18px, 5.5vw, 24px); font-weight: 900; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.8); letter-spacing: 1.5px; animation: pulse 1.5s infinite;">
+            👑 0.7%の奇跡！金のモアイ降臨 👑
+          </div>
+          
+          <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
+            <span style="background: linear-gradient(90deg, transparent, rgba(255,215,0,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #fff; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,215,0,0.3); border-bottom: 1px solid rgba(255,215,0,0.3); text-shadow: 0 0 5px rgba(255,215,0,0.5);">
+              ✨ 【選ばれしVIP限定】秘密のシークレット直売所 ✨
+            </span>
+            <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
+              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">0.7%</strong> の「金のモアイ」と交信した時だけ開く、超激レアな直売所じゃ！<br>
+              この画面を閉じると一旦閉まってしまうので、このラッキーな遭遇チャンスをお見逃しなく！<br>
+              幸運を記念し、ラッキーセブン<strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 13px;">【各7セット限定】</strong>の極秘・特別優待品を用意したぞ。
+            </span>
+          </div>
+
+          <!-- 極秘商品リスト -->
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 18px; text-align: left;">
+            
+            <!-- ① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット -->
+            <div onclick="window.open('https://minne.com/items/45604230?code=dnroLkLN3M', '_blank')" style="
+              background: rgba(0,0,0,0.75);
+              border: 1px solid rgba(255,215,0,0.4);
+              border-radius: 12px;
+              padding: 14px 16px;
+              cursor: pointer;
+              transition: all 0.2s ease-in-out;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット</span>
+                <span style="background: linear-gradient(135deg, #ff3333, #aa0000); color: #fff; font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 6px; white-space: nowrap; box-shadow: 0 0 8px rgba(255,51,51,0.6); border: 1px solid #ff6666;">残り7限</span>
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
+              </div>
+            </div>
+
+            <!-- ② モアイロボMark2専用 神スタンド -->
+            <div onclick="window.open('https://minne.com/account/products/45611657', '_blank')" style="
+              background: rgba(0,0,0,0.75);
+              border: 1px solid rgba(255,215,0,0.4);
+              border-radius: 12px;
+              padding: 14px 16px;
+              cursor: pointer;
+              transition: all 0.2s ease-in-out;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">② モアイロボMark2専用 神スタンド</span>
+                <span style="background: linear-gradient(135deg, #ff3333, #aa0000); color: #fff; font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 6px; white-space: nowrap; box-shadow: 0 0 8px rgba(255,51,51,0.6); border: 1px solid #ff6666;">残り7限</span>
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
+              </div>
+            </div>
+
+            <!-- ③ ミニおすわりモアイキーホルダー -->
+            <div onclick="window.open('https://minne.com/account/products/45611506', '_blank')" style="
+              background: rgba(0,0,0,0.75);
+              border: 1px solid rgba(255,215,0,0.4);
+              border-radius: 12px;
+              padding: 14px 16px;
+              cursor: pointer;
+              transition: all 0.2s ease-in-out;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">③ ミニおすわりモアイキーホルダー</span>
+                <span style="background: #ff3333; color: #fff; font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 6px; white-space: nowrap; box-shadow: 0 0 8px rgba(255,51,51,0.6); border: 1px solid #ff6666;">残り7限</span>
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
+              </div>
+            </div>
+
+            <!-- ④ まちょいモアイメガネスタンド -->
+            <div onclick="window.open('https://minne.com/account/products/45340967', '_blank')" style="
+              background: rgba(0,0,0,0.75);
+              border: 1px solid rgba(255,215,0,0.4);
+              border-radius: 12px;
+              padding: 14px 16px;
+              cursor: pointer;
+              transition: all 0.2s ease-in-out;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">④ まちょいモアイメガネスタンド</span>
+                <span style="background: #ff3333; color: #fff; font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 6px; white-space: nowrap; box-shadow: 0 0 8px rgba(255,51,51,0.6); border: 1px solid #ff6666;">残り7限</span>
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
+              </div>
+            </div>
+
+          </div>
         </div>
+        ` : ''}
         ` : ''}
 
         <!-- 💥 吹き飛ばしモード選択 -->
