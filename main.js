@@ -179,7 +179,7 @@ function spawnYogurt() {
   let isGoldenMoai = false;
   
   const rand = Math.random();
-  if (rand < 0.007 || window.debugForceGold) { // 0.7%の超低確率で「金のモアイ」が流れる！(デバッグキー有効時も含む)
+  if (rand < 0.03 || window.debugForceGold) { // 3.0%の確率で「金のモアイ」が流れる！（低確率ながら自然に遭遇できるバランス）
     material = moaiShotMaterial;
     isSpecial = true;
     isGoldenMoai = true;
