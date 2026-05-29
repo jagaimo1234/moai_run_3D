@@ -178,8 +178,12 @@ function spawnYogurt() {
   let isSpecial = false;
   let isGoldenMoai = false;
   
+  const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
+  const isBeforeStart = Date.now() < targetTime;
+  const goldSpawnRate = isBeforeStart ? 0.15 : 0.03; // カウントダウン終了前は15%（高確率で出会える！）、終了後は3.0%に戻る
+
   const rand = Math.random();
-  if (rand < 0.03 || window.debugForceGold) { // 3.0%の確率で「金のモアイ」が流れる！（低確率ながら自然に遭遇できるバランス）
+  if (rand < goldSpawnRate || window.debugForceGold) {
     material = moaiShotMaterial;
     isSpecial = true;
     isGoldenMoai = true;
