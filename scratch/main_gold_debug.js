@@ -477,7 +477,7 @@ function animate() {
           font-family: 'Outfit', 'Inter', 'DotGothic16', sans-serif;
         ">
           <div style="font-size: clamp(18px, 5.5vw, 24px); font-weight: 900; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.8); letter-spacing: 1.5px; animation: pulse 1.5s infinite;">
-            👑 0.7%の奇跡！金のモアイ降臨 👑
+            👑 7%の奇跡！金のモアイ降臨 👑
           </div>
           
           ${isBeforeStart ? `
@@ -486,7 +486,7 @@ function animate() {
               ✨ 秘密のシークレット直売所 ✨
             </span>
             <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
-              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">0.7%</strong> の「金のモアイ」との交信に成功したぞ！<br>
+              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">7%</strong> の「金のモアイ」との交信に成功したぞ！<br>
               だが、極秘直売所がオープンするのは...<br>
               <strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 14px;">【本日 5月30日(土) 18:00】</strong>からじゃ！<br>
               ただいま次元のゲートが開くのを調整中。オープンまでわくわくしてお待ちくだされ！
@@ -575,7 +575,7 @@ function animate() {
               ✨ 【選ばれしVIP限定】秘密のシークレット直売所 ✨
             </span>
             <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
-              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">0.7%</strong> の「金のモアイ」と交信した時だけ開く、超激レアな直売所じゃ！<br>
+              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">7%</strong> の「金のモアイ」と交信した時だけ開く、超激レアな直売所じゃ！<br>
               この画面を閉じると一旦閉まってしまうので、このラッキーな遭遇チャンスをお見逃しなく！<br>
               幸運を記念し、ラッキーセブン<strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 13px;">【各7セット限定】</strong>の極秘・特別優待品を用意したぞ。
             </span>
