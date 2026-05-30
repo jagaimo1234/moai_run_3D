@@ -180,7 +180,7 @@ function spawnYogurt() {
   
   const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
   const isBeforeStart = Date.now() < targetTime;
-  const goldSpawnRate = isBeforeStart ? 0.10 : 0.03; // カウントダウン終了前は10%（程よい確率！）、終了後は3.0%に戻る
+  const goldSpawnRate = isBeforeStart ? 0.10 : 0.07; // カウントダウン前は10%、18:00以降は「7%の奇跡」に合わせて常時7%に自動調整！
 
   const rand = Math.random();
   if (rand < goldSpawnRate || window.debugForceGold) {
