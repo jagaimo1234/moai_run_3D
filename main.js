@@ -446,7 +446,10 @@ function animate() {
 
       const hitByGold = yogurt.userData && yogurt.userData.isGoldenMoai;
       const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
-      const isBeforeStart = Date.now() < targetTime;
+      const endTime = new Date('2026-06-05T23:59:00+09:00').getTime();
+      const now = Date.now();
+      const isBeforeStart = now < targetTime;
+      const isAfterEnd = now > endTime;
 
       document.getElementById('start-screen').style.display = 'flex';
       document.getElementById('start-screen').style.opacity = '1';
@@ -480,7 +483,18 @@ function animate() {
             👑 7%の奇跡！金のモアイ降臨 👑
           </div>
           
-          ${isBeforeStart ? `
+          ${isAfterEnd ? `
+          <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
+            <span style="background: linear-gradient(90deg, transparent, rgba(255,51,51,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #ff4444; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,51,51,0.3); border-bottom: 1px solid rgba(255,51,51,0.3); text-shadow: 0 0 5px rgba(255,51,51,0.5);">
+              📢 本販売所は閉鎖されました 🗿
+            </span>
+            <span style="color: #ccc; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
+              ご交信ありがとうございました！<br>
+              本特別直売所は <strong style="color: #ffd700;">6月5日(金) 23:59</strong> をもって完全に終了し、閉鎖されました。<br>
+              またの機会を楽しみにお待ちください！
+            </span>
+          </div>
+          ` : isBeforeStart ? `
           <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
             <span style="background: linear-gradient(90deg, transparent, rgba(255,215,0,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #fff; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,215,0,0.3); border-bottom: 1px solid rgba(255,215,0,0.3); text-shadow: 0 0 5px rgba(255,215,0,0.5);">
               ✨ 秘密のシークレット直売所 ✨
@@ -577,7 +591,10 @@ function animate() {
             <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
               遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">7%</strong> の「金のモアイ」と交信した時だけ開く、超激レアな直売所じゃ！<br>
               この画面を閉じると一旦閉まってしまうので、このラッキーな遭遇チャンスをお見逃しなく！<br>
-              幸運を記念し、ラッキーセブン<strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 13px;">【各7セット限定】</strong>の極秘・特別優待品を用意したぞ。
+              幸運を記念し、ラッキーセブン<strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 13px;">【各7セット限定】</strong>の極秘・特別優待品を用意したぞ。<br>
+              <span style="display: inline-block; background: rgba(255,51,51,0.15); border: 1px solid rgba(255,51,51,0.3); color: #ff4444; font-weight: 900; padding: 4px 12px; border-radius: 6px; margin-top: 8px; font-size: 11px; letter-spacing: 0.5px; animation: pulse 1.5s infinite;">
+                ⚠️ 本販売所は 6月5日(金) 23:59 をもって完全に閉鎖されます 🗿
+              </span>
             </span>
           </div>
 
