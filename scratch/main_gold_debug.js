@@ -448,8 +448,23 @@ function animate() {
       const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
       const endTime = new Date('2026-06-05T23:59:00+09:00').getTime();
       const now = Date.now();
-      const isBeforeStart = now < targetTime;
-      const isAfterEnd = now > endTime;
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const testParam = urlParams.get('test');
+      
+      let isBeforeStart = now < targetTime;
+      let isAfterEnd = now > endTime;
+
+      if (testParam === 'countdown') {
+        isBeforeStart = true;
+        isAfterEnd = false;
+      } else if (testParam === 'shop') {
+        isBeforeStart = false;
+        isAfterEnd = false;
+      } else if (testParam === 'closed') {
+        isBeforeStart = false;
+        isAfterEnd = true;
+      }
 
       document.getElementById('start-screen').style.display = 'flex';
       document.getElementById('start-screen').style.opacity = '1';
