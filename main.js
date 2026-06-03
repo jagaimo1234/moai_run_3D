@@ -109,12 +109,17 @@ const hud = {
   up: document.getElementById('btn-up'),
   down: document.getElementById('btn-down'),
   fire: document.getElementById('btn-fire'),
-  fullscreen: document.getElementById('fullscreen-btn'),
   mobileStick: document.getElementById('mobile-stick'),
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let userVoiceBuffer = null;
+let bgmTimer = null;
+let bgmStep = 0;
+let bgmRunning = false;
+let bgmGain = null;
+const bgmBass = [55, 55, 65.41, 55, 73.42, 65.41, 49, 55];
+const bgmLead = [220, 0, 246.94, 0, 261.63, 0, 196, 0, 174.61, 0, 196, 0, 246.94, 0, 220, 0];
 
 fetch('./uservoice.m4a')
   .then((res) => res.arrayBuffer())
@@ -490,6 +495,77 @@ function blip(frequency, duration = 0.08, volume = 0.08, type = 'square') {
   osc.stop(audioCtx.currentTime + duration);
 }
 
+function playBgmTone(frequency, duration, volume, type = 'square', detune = 0) {
+  if (!frequency || !bgmGain) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = frequency;
+  osc.detune.value = detune;
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(volume, audioCtx.currentTime + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(bgmGain);
+  osc.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + duration + 0.02);
+}
+
+function startBgm() {
+  if (bgmRunning) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  bgmRunning = true;
+  bgmStep = 0;
+  if (!bgmGain) {
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.12;
+    bgmGain.connect(audioCtx.destination);
+  }
+  scheduleBgmStep();
+}
+
+function stopBgm() {
+  bgmRunning = false;
+  if (bgmTimer) {
+    clearTimeout(bgmTimer);
+    bgmTimer = null;
+  }
+  if (bgmGain) {
+    bgmGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    bgmGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.08);
+  }
+}
+
+function scheduleBgmStep() {
+  if (!bgmRunning) return;
+  const distance = getNearestAuthorDistance();
+  const danger = THREE.MathUtils.clamp((34 - distance) / 34, 0, 1);
+  const swarm = finalSwarmActive ? 1 : 0;
+  const interval = Math.max(105, 230 - danger * 68 - swarm * 54);
+  const master = 0.075 + danger * 0.065 + swarm * 0.04;
+
+  if (bgmGain) {
+    bgmGain.gain.setTargetAtTime(master, audioCtx.currentTime, 0.08);
+  }
+
+  const bass = bgmBass[bgmStep % bgmBass.length];
+  const lead = bgmLead[bgmStep % bgmLead.length];
+  playBgmTone(bass, 0.18, 0.22, 'sawtooth', -8);
+
+  if (bgmStep % 2 === 0) {
+    playBgmTone(bass * 2, 0.055, 0.07 + danger * 0.03, 'square', 5);
+  }
+  if ((danger > 0.35 || swarm) && lead) {
+    playBgmTone(lead * (swarm ? 1.5 : 1), 0.075, 0.06, 'triangle');
+  }
+  if (swarm && bgmStep % 4 === 1) {
+    playBgmTone(880, 0.045, 0.05, 'square', 12);
+  }
+
+  bgmStep++;
+  bgmTimer = setTimeout(scheduleBgmStep, interval);
+}
+
 function makeShot(owner, position, direction) {
   const isPlayer = owner === 'player';
   const shot = new THREE.Mesh(
@@ -745,6 +821,9 @@ function activateFinalSwarm() {
   });
   screenShake = 0.55;
   playUserVoice();
+  blip(110, 0.22, 0.16, 'sawtooth');
+  setTimeout(() => blip(92, 0.22, 0.16, 'sawtooth'), 180);
+  setTimeout(() => blip(73, 0.32, 0.18, 'sawtooth'), 360);
 }
 
 function updateCamera(dt) {
@@ -774,6 +853,7 @@ function finishGame(won) {
   if (gameOver) return;
   gameOver = true;
   victory = won;
+  stopBgm();
   if (window.logScore) window.logScore(Math.round(won ? 1000 + energy * 3 + crystals * 80 : crystals * 80));
   const title = won ? '脱出成功！' : '作者につかまった';
   const body = won
@@ -832,6 +912,7 @@ function resetGame() {
   if (hud.start) hud.start.style.display = 'none';
   if (window.logPlayerStart) window.logPlayerStart();
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  startBgm();
 }
 
 function animate() {
@@ -877,7 +958,7 @@ window.addEventListener('keyup', (event) => {
 });
 
 function isTouchUiTarget(event) {
-  return Boolean(event.target.closest?.('#controls, #fullscreen-btn, #start-screen, #name-input-overlay, button'));
+  return Boolean(event.target.closest?.('#controls, #start-screen, #name-input-overlay, button'));
 }
 
 function updateMobileStickVisual(clientX, clientY) {
@@ -978,18 +1059,6 @@ setupTouchButton(hud.right, 'right');
 setupTouchButton(hud.up, 'forward');
 setupTouchButton(hud.down, 'backward');
 setupTouchButton(hud.fire, 'fire');
-
-if (hud.fullscreen) {
-  hud.fullscreen.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      hud.fullscreen.textContent = 'EXIT';
-    } else {
-      document.exitFullscreen();
-      hud.fullscreen.textContent = 'FULLSCREEN';
-    }
-  });
-}
 
 if (hud.start) {
   hud.start.addEventListener('click', resetGame);
