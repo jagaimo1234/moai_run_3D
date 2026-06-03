@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MOAI YOGURT AVOID [V1]</title>
+    <title>MOAI ROBO OPEN WORLD</title>
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=DotGothic16&display=swap" rel="stylesheet">
     <style>
@@ -36,11 +36,13 @@
             background: var(--glass-bg);
             backdrop-filter: blur(10px);
             border: 1px solid var(--glass-border);
-            padding: 10px 20px;
-            border-radius: 15px;
-            font-size: 14px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
             display: inline-block;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: min(680px, calc(100vw - 40px));
+            line-height: 1.45;
         }
 
         #score-container {
@@ -51,7 +53,7 @@
             backdrop-filter: blur(10px);
             border: 1px solid var(--glass-border);
             padding: 8px 15px;
-            border-radius: 12px;
+            border-radius: 8px;
             z-index: 10;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             text-align: right;
@@ -89,31 +91,57 @@
 
         #controls {
             position: absolute;
-            bottom: env(safe-area-inset-bottom, 40px);
+            bottom: env(safe-area-inset-bottom, 28px);
             width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 0 30px;
+            align-items: flex-end;
+            padding: 0 26px;
             box-sizing: border-box;
             pointer-events: none;
         }
 
+        .move-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 58px);
+            grid-template-rows: repeat(2, 58px);
+            gap: 8px;
+            pointer-events: none;
+        }
+
         .btn-joystick {
-            width: 90px;
-            height: 90px;
+            width: 58px;
+            height: 58px;
             background: var(--glass-bg);
             backdrop-filter: blur(15px);
             border: 2px solid var(--glass-border);
-            border-radius: 50%;
+            border-radius: 8px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 36px;
+            font-size: 25px;
             pointer-events: auto;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
             user-select: none;
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+
+        #btn-fire {
+            width: 86px;
+            height: 86px;
+            align-self: flex-end;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0;
+            background: rgba(255, 95, 69, 0.18);
+            border-color: rgba(255, 170, 120, 0.7);
+            color: #fff3e8;
         }
 
         .btn-joystick:active {
@@ -131,7 +159,7 @@
             backdrop-filter: blur(10px);
             border: 1px solid var(--glass-border);
             padding: 8px 15px;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 12px;
             pointer-events: auto;
             cursor: pointer;
@@ -144,7 +172,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at center, rgba(30, 30, 30, 0.9) 0%, rgba(0, 0, 0, 1) 100%);
+            background: radial-gradient(circle at center, rgba(28, 50, 42, 0.9) 0%, rgba(0, 0, 0, 1) 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -159,8 +187,34 @@
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             padding: 40px;
-            border-radius: 30px;
+            border-radius: 8px;
             box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+            max-width: min(520px, calc(100vw - 34px));
+            box-sizing: border-box;
+        }
+
+        .open-world-card {
+            border-color: rgba(119, 244, 255, 0.45);
+        }
+
+        .mission-readout {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 16px 0;
+            font-size: 13px;
+            color: rgba(255,255,255,0.82);
+        }
+
+        .start-button {
+            background: #77f4ff;
+            color: #071316;
+            border: 0;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 800;
+            cursor: pointer;
         }
 
         h1 {
@@ -334,6 +388,38 @@
             }
         }
 
+        @media (max-width: 520px) {
+            #ui-container {
+                left: 12px;
+                right: 12px;
+            }
+            #score-container {
+                right: 12px;
+                padding: 7px 10px;
+            }
+            .score-val {
+                font-size: 21px;
+            }
+            #controls {
+                padding: 0 14px;
+            }
+            .move-pad {
+                grid-template-columns: repeat(3, 50px);
+                grid-template-rows: repeat(2, 50px);
+                gap: 7px;
+            }
+            .btn-joystick {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+            #btn-fire {
+                width: 76px;
+                height: 76px;
+                font-size: 13px;
+            }
+        }
+
         .retro-btn {
             position: absolute;
             background: transparent;
@@ -411,7 +497,7 @@
 
 <body>
     <div id="ui-container">
-        <div id="ui-text">← → MOVE / AVOID ENEMIES</div>
+        <div id="ui-text">WASD/矢印 移動  ドラッグ 視点  SPACE/SHIFT ダッシュ  作者から逃げろ</div>
     </div>
     <div id="score-container">
         <span class="score-label">Score</span>
@@ -419,11 +505,6 @@
         <span class="best-label">Today's Best</span>
         <span id="today-best-val" class="best-val">0</span>
     </div>
-
-    <!-- 💥 スッキリしたボタン（スタートに戻る） -->
-    <button id="revenge-back-btn" class="btn-revenge-back" onclick="event.stopPropagation(); window.stopRevengeMode()">
-        ✨ スッキリした！ (戻る)
-    </button>
 
     <div id="start-screen" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; cursor: pointer; display: flex; flex-direction: column; align-items: center; overflow: hidden;">
         <div style="position: relative; width: 100%; max-width: 550px;">
@@ -465,6 +546,18 @@
             </div>
             <!-- ▲▲▲ イベント情報 ここまで ▲▲▲ -->
 
+            <div style="
+                position: absolute; top: 8%; width: 100%; text-align: center; margin: 0;
+                font-family: 'Outfit', 'DotGothic16', sans-serif; color: #fff;
+                text-shadow: 0 0 12px rgba(0,0,0,0.9); z-index: 101;
+                padding: 0 18px; box-sizing: border-box;
+            ">
+                <h1 style="font-size: clamp(26px, 8vw, 42px); margin: 0 0 8px;">MOAI ROBO OPEN WORLD</h1>
+                <div style="font-size: clamp(13px, 3.7vw, 17px); font-weight: 700; line-height: 1.45;">
+                    緑の安全地帯で息を整えながら、青い封印石を集めて脱出しろ
+                </div>
+            </div>
+
             <!-- Tap to Start -->
             <p class="tap-msg" style="
                 position: absolute; top: 60%; width: 100%; text-align: center; margin: 0;
@@ -478,7 +571,7 @@
                 font-family: 'Outfit', sans-serif; font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
                 color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,0.8), 0 0 3px #000;
                 z-index: 101; letter-spacing: 0.5px;
-            ">🔊 ミュート解除するとBGMがでます</p>
+            ">WASD/矢印: 移動　ドラッグ: 視点　SPACE/SHIFT: ダッシュ</p>
 
             <!-- Global High Score Display -->
             <div id="global-best-container" style="
@@ -521,8 +614,13 @@
     <div id="fullscreen-btn">FULLSCREEN</div>
 
     <div id="controls">
-        <div id="btn-left" class="btn-joystick">←</div>
-        <div id="btn-right" class="btn-joystick">→</div>
+        <div class="move-pad">
+            <div id="btn-up" class="btn-joystick">↑</div>
+            <div id="btn-left" class="btn-joystick">←</div>
+            <div id="btn-down" class="btn-joystick">↓</div>
+            <div id="btn-right" class="btn-joystick">→</div>
+        </div>
+        <div id="btn-fire" class="btn-joystick">DASH</div>
     </div>
 
     <!-- Firebase SDK -->
@@ -685,7 +783,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260526_1"></script>
+    <script type="module" src="./main.js?v=20260604_speed_authors_safezone"></script>
 </body>
 
 </html>

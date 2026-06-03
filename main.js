@@ -1,1053 +1,848 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// シーン・カメラ・レンダラー
+const WORLD_SIZE = 72;
+const PLAYER_SPEED = 11.5;
+const SPRINT_SPEED = 19;
+const AUTHOR_SPEED = 8.1;
+const SHOT_SPEED = 28;
+const SEALS_REQUIRED = 7;
+
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 5, 20);
+scene.background = new THREE.Color(0x7fc6df);
+scene.fog = new THREE.Fog(0x7fc6df, 34, 105);
 
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  100
-);
-camera.position.set(0, 3, 8);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 180);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// ライト
-const light = new THREE.DirectionalLight(0xffffff, 2);
-light.position.set(3, 10, 5);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0x888888, 1)); // 明るめに
-
-// ===== アセットローダー =====
+const clock = new THREE.Clock();
 const textureLoader = new THREE.TextureLoader();
 const gltfLoader = new GLTFLoader();
 
-// ===== モアイロボ =====
+const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+sun.position.set(18, 25, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 80;
+sun.shadow.camera.left = -55;
+sun.shadow.camera.right = 55;
+sun.shadow.camera.top = 55;
+sun.shadow.camera.bottom = -55;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbfeaff, 0x486c44, 1.7));
+
+const world = new THREE.Group();
+scene.add(world);
+
 const moai = new THREE.Group();
 scene.add(moai);
 
-// デフォルトのモアイ（Box）を作成する関数
-function createFallbackMoai() {
-  console.log("Loading fallback Moai...");
-  // 頭
-  const head = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1.5, 1),
-    new THREE.MeshStandardMaterial({ color: 0xaaaaaa })
-  );
-  head.position.y = 1;
-  moai.add(head);
+const author = new THREE.Group();
+scene.add(author);
+const escapeGate = new THREE.Group();
+scene.add(escapeGate);
 
-  // 体
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 1, 0.6),
-    new THREE.MeshStandardMaterial({ color: 0x888888 })
-  );
-  body.position.y = 0.25;
-  moai.add(body);
-}
+const keys = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  fire: false,
+  lookLeft: false,
+  lookRight: false,
+};
 
-// GLTFモデルのロード試行
-gltfLoader.load(
-  './moai.glb',
-  (gltf) => {
-    const model = gltf.scene;
-    // サイズ調整（モデルに合わせて適宜調整が必要）
-    // バウンディングボックスからサイズを推定して正規化すると良いが、
-    // ここでは仮にスケールを調整
-    model.scale.set(1.5, 1.5, 1.5);
-    model.position.y = 0;
-    model.rotation.y = Math.PI / 2; // 前向き（-Z）
-
-    // 既存のコンテンツ（フォールバック）を削除
-    while (moai.children.length > 0) {
-      moai.remove(moai.children[0]);
-    }
-    moai.add(model);
-    console.log("Moai model loaded!");
-  },
-  undefined,
-  (error) => {
-    console.warn("Moai model not found, using fallback.", error);
-    createFallbackMoai();
-  }
-);
-
-// 初期表示はとりあえずフォールバックを出しておく（ロード待ち）
-// ロード完了時に差し替える
-createFallbackMoai();
-
-
-// ===== ユーザー障害物 (以前のヨーグルト) =====
-const userGeometry = new THREE.PlaneGeometry(1.5, 2.5); // 人型に合わせたサイズ
-// テクスチャロード
-let userMaterial;
-const userTexture = textureLoader.load('./user.png',
-  (tex) => { console.log("User texture loaded!"); },
-  undefined,
-  (err) => { console.warn("User texture not found, using default color."); }
-);
-
-userMaterial = new THREE.MeshStandardMaterial({
-  map: userTexture,
-  transparent: true,
-  side: THREE.DoubleSide
-});
-
-// 金のモアイ: moai_shot (超低確率で混入。Three.jsマテリアルに黄金の輝きを追加！)
-const moaiShotTexture = textureLoader.load('./moai_shot.png');
-const moaiShotMaterial = new THREE.MeshStandardMaterial({
-  map: moaiShotTexture,
-  transparent: true,
-  side: THREE.DoubleSide,
-  emissive: new THREE.Color(0xffd700), // 黄金の自己発光
-  emissiveMap: moaiShotTexture,
-  emissiveIntensity: 0.35, // 神々しい発光
-  metalness: 0.8, // 金属的な反射
-  roughness: 0.15 // なめらかな光沢
-});
-
-// レアな敵: happy (スコア300以上で5%の確率)
-const happyTexture = textureLoader.load('./happy.png');
-const happyMaterial = new THREE.MeshStandardMaterial({
-  map: happyTexture,
-  transparent: true,
-  side: THREE.DoubleSide
-});
-
-// もし画像がないときに「真っ黒」になるのを防ぐため、mapが見つからない場合の色指定を変える工夫もできるが、
-// MeshStandardMaterialはmapがnull(ロード失敗)ならcolorが使われるはず。
-// ただしLoaderはデフォルトで白いテクスチャを返すわけではないので、
-// エラー時に明示的にnullにする処理を入れる手もあるが、Three.jsのTextureLoaderは
-// エラー時でもTextureオブジェクトを返し、単にレンダリングされないだけ（黒くなる場合がある）。
-// 念のため、初期値は白マテリアルにしておき、ロード成功したらmapを適用する方法が安全だが、
-// 簡便のためそのままいく。
-
-const yogurts = [];
-
-// 吹き飛ばしモード: スプライトを吹き飛ばす
-function blastSprite(yogurt, index) {
-  yogurts.splice(index, 1);
-  blownSprites.push({
-    mesh: yogurt,
-    vx: (Math.random() - 0.5) * 0.6,
-    vy: 0.22 + Math.random() * 0.25,
-    vz: 0.4 + Math.random() * 0.35,
-    rx: (Math.random() - 0.5) * 0.4,
-    rz: (Math.random() - 0.5) * 0.4,
-  });
-
-  const isGold = yogurt.userData && yogurt.userData.isGoldenMoai;
-  if (isGold) {
-    // 💥 金のモアイを撃破！撃破数+10の超絶ビッグボーナス！
-    revengeScore += 10;
-    // モアイ全体を黄金にまばゆく輝かせる演出！
-    moai.traverse(c => { 
-      if (c.isMesh) { 
-        const orig = c.material.emissive?.getHex() ?? 0; 
-        c.material.emissive?.setHex(0xffd700); 
-        setTimeout(() => c.material.emissive?.setHex(orig), 400); 
-      } 
-    });
-  } else {
-    revengeScore++;
-    // 通常の赤色発光
-    moai.traverse(c => { 
-      if (c.isMesh) { 
-        const orig = c.material.emissive?.getHex() ?? 0; 
-        c.material.emissive?.setHex(0xff2200); 
-        setTimeout(() => c.material.emissive?.setHex(orig), 120); 
-      } 
-    });
-  }
-
-  document.getElementById('current-score-val').innerText = revengeScore;
-
-  // 作者（特殊ではない通常スプライト）に当たったときだけ悲鳴を再生
-  if (yogurt.userData && !yogurt.userData.isSpecial) {
-    playUserVoice();
-  }
-}
-
-function spawnYogurt() {
-  let material = userMaterial;
-  let isSpecial = false;
-  let isGoldenMoai = false;
-  
-  const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
-  const isBeforeStart = Date.now() < targetTime;
-  const goldSpawnRate = isBeforeStart ? 0.10 : 0.07; // カウントダウン前は10%、18:00以降は「7%の奇跡」に合わせて常時7%に自動調整！
-
-  const rand = Math.random();
-  if (rand < goldSpawnRate || window.debugForceGold) {
-    material = moaiShotMaterial;
-    isSpecial = true;
-    isGoldenMoai = true;
-    window.debugForceGold = false; // フラグをリセット
-  } else if (score > 300) {
-    // スコア300以上なら確率で特殊キャラに差し替え
-    const specialRand = Math.random();
-    if (specialRand < 0.05) {
-      // 5% の確率で happy
-      material = happyMaterial;
-      isSpecial = true;
-    }
-  }
-
-  const yogurt = new THREE.Mesh(userGeometry, material);
-  yogurt.userData.isSpecial = isSpecial;
-  yogurt.userData.isGoldenMoai = isGoldenMoai; // 金のモアイ判定用
-
-  if (isGoldenMoai) {
-    yogurt.scale.set(1.4, 1.4, 1.4); // 金のモアイは1.4倍サイズ！存在感が抜群！
-  }
-
-  yogurt.position.set(
-    (Math.random() - 0.5) * 6,
-    1.2, // 地面より少し上
-    -20  // 遠くから
-  );
-
-  // 回転はさせず、常に正面を向かせる
-  yogurt.rotation.y = 0;
-
-  scene.add(yogurt);
-  yogurts.push(yogurt);
-}
-
-// ===== 操作 =====
-let moveLeft = false;
-let moveRight = false;
-
-window.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowLeft" || e.key === "a") moveLeft = true;
-  if (e.key === "ArrowRight" || e.key === "d") moveRight = true;
-  if (e.key.toLowerCase() === "g") {
-    window.debugForceGold = true;
-    console.log("🔒 Debug: Next obstacle forced to Golden Moai!");
-  }
-});
-window.addEventListener("keyup", (e) => {
-  if (e.key === "ArrowLeft" || e.key === "a") moveLeft = false;
-  if (e.key === "ArrowRight" || e.key === "d") moveRight = false;
-});
-
-// スマホ操作（ボタン）
-const btnLeft = document.getElementById("btn-left");
-const btnRight = document.getElementById("btn-right");
-const fullscreenBtn = document.getElementById("fullscreen-btn");
-
-function setupBtn(btn, isLeft) {
-  if (!btn) return;
-  // タッチ開始 / マウス押し
-  const start = (e) => {
-    e.preventDefault();
-    if (isLeft) moveLeft = true;
-    else moveRight = true;
-  };
-
-  // タッチ終了 / マウス離し
-  const end = (e) => {
-    e.preventDefault();
-    if (isLeft) moveLeft = false;
-    else moveRight = false;
-  };
-
-  btn.addEventListener("touchstart", start, { passive: false });
-  btn.addEventListener("touchend", end);
-  btn.addEventListener("mousedown", start);
-  btn.addEventListener("mouseup", end);
-  btn.addEventListener("mouseleave", end);
-}
-
-setupBtn(btnLeft, true);
-setupBtn(btnRight, false);
-
-// 全画面表示
-if (fullscreenBtn) {
-  fullscreenBtn.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        alert(`Error: ${err.message}`);
-      });
-      fullscreenBtn.innerText = "EXIT FULLSCREEN";
-    } else {
-      document.exitFullscreen();
-      fullscreenBtn.innerText = "FULLSCREEN";
-    }
-  });
-}
-
-// 以前の画面半分タップロジックは削除するか、
-// そのまま残して「ボタンでも画面タップでも」どっちでもいけるようにするか。
-// ユーザーは「ボタンを実装して」と言ったので、明確なボタンを優先し、
-// 全画面タップは誤操作の元になるかもしれないので削除（コメントアウト）するのが安全。
-
-
-// ===== ゲームループ =====
+let gameStarted = false;
 let gameOver = false;
-let gameStarted = false; // ゲーム開始フラグ
-let spawnTimer = 0;
-let speed = 0.2; // 初速
-let score = 0; // スコア
+let victory = false;
+let playerHealth = 100;
+let authorHealth = 140;
+let energy = 100;
+let crystals = 0;
+let fireCooldown = 0;
+let authorFireCooldown = 1.4;
+let authorTauntTimer = 0;
+let screenShake = 0;
+let escapeOpen = false;
+let panicTimer = 0;
+let cameraYaw = Math.PI;
+let cameraPitch = 0.46;
+let cameraDistance = 10.5;
+let pointerLookActive = false;
+let lastPointerX = 0;
+let lastPointerY = 0;
+const playerVelocity = new THREE.Vector3();
 
-// ===== 吹き飛ばしモード =====
-let revengeMode = false;
-let revengeScore = 0;
-const blownSprites = []; // { mesh, vx, vy, vz, rx, rz }
+const playerShots = [];
+const authorShots = [];
+const pickupCrystals = [];
+const props = [];
+const authors = [];
+const safetyZones = [];
 
-function updateBestDisplay() {
-  // 表示の更新自体は index.html の Firebase 監視側で行うため、
-  // ここでは数字での強制上書きを停止します。
-}
-window.updateBestDisplay = updateBestDisplay;
+const hud = {
+  current: document.getElementById('current-score-val'),
+  today: document.getElementById('today-best-val'),
+  label: document.querySelector('.score-label'),
+  bestLabel: document.querySelector('.best-label'),
+  hint: document.getElementById('ui-text'),
+  start: document.getElementById('start-screen'),
+  left: document.getElementById('btn-left'),
+  right: document.getElementById('btn-right'),
+  up: document.getElementById('btn-up'),
+  down: document.getElementById('btn-down'),
+  fire: document.getElementById('btn-fire'),
+  fullscreen: document.getElementById('fullscreen-btn'),
+};
 
-// 初回表示用 (Firebaseの取得待ちを考慮して少し遅らせる)
-setTimeout(updateBestDisplay, 1500);
-
-let lookBehindTimer = 0;
-let isLookingBehind = false;
-let targetRotationY = Math.PI / 2; // 通常時: 前向き（-Z）
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  if (!gameStarted || gameOver) return;
-
-  // スコア加算
-  score++;
-  document.getElementById('current-score-val').innerText = score;
-  
-  // 本日の全体ベスト更新チェック（リアルタイム表示用）
-  if (score > (window.todayGlobalBestScore || 0)) {
-    // 表示の更新は Firebase の onValue で自動で行われるため、ここでは保存せず通知だけ待つ
-  }
-
-  // ----- キョロキョロ演出: ランダムにあちこちを向く -----
-  // 向きの候補: 前・後・左・右・斜め各種
-  const LOOK_DIRS = [
-    { rot: Math.PI / 2,       label: '前' },         // 山子山の後・画面山
-    { rot: -Math.PI / 2,      label: '後ろ(カメラ)' }, // プレイヤー側
-    { rot: 0,                 label: '左' },
-    { rot: Math.PI,           label: '右' },
-    { rot: Math.PI / 4,       label: '左斜め山子山' },
-    { rot: -Math.PI / 4,      label: '左斜め後〰8' },
-    { rot: Math.PI * 3 / 4,   label: '右斜め山子山' },
-    { rot: -Math.PI * 3 / 4,  label: '右斜め後ろ' },
-  ];
-
-  if (!isLookingBehind && Math.random() < 0.003) {
-    isLookingBehind = true;
-    // まず山子山の方向以外からランダムに選ぶ
-    const choices = LOOK_DIRS.filter(d => Math.abs(d.rot - Math.PI / 2) > 0.1);
-    const picked = choices[Math.floor(Math.random() * choices.length)];
-    targetRotationY = picked.rot;
-
-    // 向く時間もランダム: 40フレーム〜180フレーム
-    lookBehindTimer = 40 + Math.floor(Math.random() * 140);
-  }
-
-  if (isLookingBehind) {
-    lookBehindTimer--;
-    if (lookBehindTimer <= 0) {
-      // たまに連続して別の方向を向く（行動がコミカルになる）
-      if (Math.random() < 0.3) {
-        const choices = LOOK_DIRS.filter(d => Math.abs(d.rot - Math.PI / 2) > 0.1 && Math.abs(d.rot - targetRotationY) > 0.1);
-        const picked = choices[Math.floor(Math.random() * choices.length)];
-        targetRotationY = picked.rot;
-        lookBehindTimer = 30 + Math.floor(Math.random() * 60);
-      } else {
-        isLookingBehind = false;
-        targetRotationY = Math.PI / 2; // 前に戻る
-      }
-    }
-  }
-
-  // 回転アニメーション (滑らかに)
-  // moai.rotation.y は 0 または PI に向かう
-  // 現在の値とターゲットの差分をとってLerp
-  // ただしPIと0の境界またぎはない（0 <-> 3.14）ので単純LerpでOK
-  if (moai.children.length > 0) { // モデルロード済みの場合
-    // moai.rotation.y ではなく、moai直下のモデルを回していたのでそちらを制御
-    // 上のLoaderで moai.add(model); model.rotation.y = Math.PI; している
-    // つまり moai.children[0] を回す
-    const mesh = moai.children[0];
-    mesh.rotation.y = THREE.MathUtils.lerp(mesh.rotation.y, targetRotationY, 0.1);
-  }
-
-
-  // モアイ移動 (振り返っていても動けるように変更)
-  if (moveLeft) moai.position.x -= 0.15;
-  if (moveRight) moai.position.x += 0.15;
-
-  // 揺れ (歩行)
-  if (moveLeft || moveRight) {
-    moai.rotation.z = Math.sin(Date.now() * 0.01) * 0.05;
-  } else {
-    moai.rotation.z *= 0.9;
-  }
-
-  moai.position.x = THREE.MathUtils.clamp(moai.position.x, -3, 3);
-
-
-  // ヨーグルト生成 (見ている間も容赦なく飛んでくる！)
-  // ヨーグルト生成
-  spawnTimer++;
-  if (spawnTimer > 15) {
-    spawnYogurt();
-    spawnTimer = 0;
-  }
-
-  // ヨーグルト移動＆当たり判定
-  speed += 0.0001; // 徐々に加速
-
-  yogurts.forEach((yogurt, index) => {
-    yogurt.position.z += speed;
-
-    if (yogurt.userData && yogurt.userData.isGoldenMoai) {
-      // 金のモアイの回転＆拡大縮小アニメーション（プレミアム演出！）
-      // 左右にゆらゆら揺れながら、神々しく回転し、呼吸するように鼓動する
-      yogurt.rotation.y += 0.08;
-      yogurt.rotation.z = Math.sin(Date.now() * 0.006) * 0.25;
-      
-      const pulseScale = 1.4 + Math.sin(Date.now() * 0.015) * 0.18;
-      yogurt.scale.set(pulseScale, pulseScale, pulseScale);
-    } else {
-      // 通常の回転演出
-      yogurt.rotation.y += 0.05;
-    }
-
-    // 当たり判定
-    const dx = yogurt.position.x - moai.position.x;
-    const dz = yogurt.position.z - moai.position.z;
-    if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.5) {
-
-      // ===== 吹き飛ばしモード =====
-      if (revengeMode) {
-        blastSprite(yogurt, index);
-        return; // このイテレーション終了
-      }
-
-      // ===== 通常ゲームオーバー =====
-      gameOver = true;
-      isPlayingBGM = false;
-
-      if (window.logScore) window.logScore(score);
-
-      const isGlobalUpdate = score > (window.globalHighScore || 0);
-      const isTodayUpdate = score > (window.todayGlobalBestScore || 0);
-      if ((isGlobalUpdate || isTodayUpdate) && window.showNameInput) {
-        window.showNameInput(score, isGlobalUpdate, isTodayUpdate);
-      }
-
-      const hitByGold = yogurt.userData && yogurt.userData.isGoldenMoai;
-      const targetTime = new Date('2026-05-30T18:00:00+09:00').getTime();
-      const endTime = new Date('2026-06-05T23:59:00+09:00').getTime();
-      const now = Date.now();
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const testParam = urlParams.get('test');
-      
-      let isBeforeStart = now < targetTime;
-      let isAfterEnd = now > endTime;
-
-      if (testParam === 'countdown') {
-        isBeforeStart = true;
-        isAfterEnd = false;
-      } else if (testParam === 'shop') {
-        isBeforeStart = false;
-        isAfterEnd = false;
-      } else if (testParam === 'closed') {
-        isBeforeStart = false;
-        isAfterEnd = true;
-      }
-
-      document.getElementById('start-screen').style.display = 'flex';
-      document.getElementById('start-screen').style.opacity = '1';
-      document.getElementById('start-screen').style.overflow = 'auto';
-      document.getElementById('start-screen').innerHTML = `
-        <div class="retro-container">
-          <img src="game_over_bg.jpg" alt="Game Over" class="retro-bg">
-          <div class="retro-score">${score}</div>
-          <button class="retro-btn btn-retry" onclick="location.reload()" aria-label="Retry"></button>
-          <button class="retro-btn btn-follow" onclick="window.open('https://www.instagram.com/moataro_k/', '_blank')" aria-label="Follow"></button>
-          <button class="retro-btn btn-x" onclick="window.open('https://x.com/kanazawamoataro', '_blank')" aria-label="Twitter/X"></button>
-          <button class="retro-btn btn-insta" onclick="window.open('https://www.instagram.com/moataro_k/', '_blank')" aria-label="Instagram"></button>
-        </div>
-
-        ${hitByGold ? `
-        <!-- 👑 金のモアイ衝突特典！極秘シークレット直売所 👑 -->
-        <div onclick="event.stopPropagation()" style="
-          background: linear-gradient(135deg, rgba(15,10,2,0.99) 0%, rgba(38,28,8,0.97) 100%);
-          border: 3px double #ffd700;
-          border-radius: 20px;
-          padding: 24px 20px;
-          margin-top: 15px;
-          box-shadow: 0 0 40px rgba(255,215,0,0.5), inset 0 0 20px rgba(255,215,0,0.2);
-          max-width: 500px;
-          width: 92%;
-          z-index: 102;
-          text-align: center;
-          font-family: 'Outfit', 'Inter', 'DotGothic16', sans-serif;
-        ">
-          <div style="font-size: clamp(18px, 5.5vw, 24px); font-weight: 900; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.8); letter-spacing: 1.5px; animation: pulse 1.5s infinite;">
-            👑 7%の奇跡！金のモアイ降臨 👑
-          </div>
-          
-          ${isAfterEnd ? `
-          <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
-            <span style="background: linear-gradient(90deg, transparent, rgba(255,51,51,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #ff4444; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,51,51,0.3); border-bottom: 1px solid rgba(255,51,51,0.3); text-shadow: 0 0 5px rgba(255,51,51,0.5);">
-              📢 本販売所は閉鎖されました 🗿
-            </span>
-            <span style="color: #ccc; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
-              ご交信ありがとうございました！<br>
-              本特別直売所は <strong style="color: #ffd700;">6月5日(金) 23:59</strong> をもって完全に終了し、閉鎖されました。<br>
-              またの機会を楽しみにお待ちください！
-            </span>
-          </div>
-          ` : isBeforeStart ? `
-          <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
-            <span style="background: linear-gradient(90deg, transparent, rgba(255,215,0,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #fff; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,215,0,0.3); border-bottom: 1px solid rgba(255,215,0,0.3); text-shadow: 0 0 5px rgba(255,215,0,0.5);">
-              ✨ 秘密のシークレット直売所 ✨
-            </span>
-            <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
-              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">7%</strong> の「金のモアイ」との交信に成功したぞ！<br>
-              だが、極秘直売所がオープンするのは...<br>
-              <strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 14px;">【本日 5月30日(土) 18:00】</strong>からじゃ！<br>
-              ただいま次元のゲートが開くのを調整中。オープンまでわくわくしてお待ちくだされ！
-            </span>
-          </div>
-
-          <!-- カウントダウン表示エリア -->
-          <div style="margin-top: 20px; padding: 15px 10px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 1px solid rgba(255,215,0,0.25); box-shadow: inset 0 0 10px rgba(255,215,0,0.1);">
-            <div style="font-size: 10px; color: #ffd700; letter-spacing: 1.5px; font-weight: 900; margin-bottom: 8px; text-shadow: 0 0 4px rgba(255,215,0,0.3);">SECRET SHOP OPENING IN</div>
-            <div id="gold-countdown-timer" style="display: flex; gap: 8px; justify-content: center; align-items: center; min-height: 50px;">
-              <!-- JSで動的に更新されます -->
-            </div>
-          </div>
-
-          <!-- 極秘商品の予告リスト -->
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px; text-align: left;">
-            <div style="font-size: 11px; color: #ffd700; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; text-align: center; text-shadow: 0 0 5px rgba(255,215,0,0.3);">🔑 特別優待品ラインナップ（予告） 🔑</div>
-            
-            <!-- ① -->
-            <div style="
-              background: rgba(0,0,0,0.5);
-              border: 1px dashed rgba(255,215,0,0.25);
-              border-radius: 10px;
-              padding: 10px 12px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              opacity: 0.85;
-            ">
-              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット</span>
-              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
-            </div>
-
-            <!-- ② -->
-            <div style="
-              background: rgba(0,0,0,0.5);
-              border: 1px dashed rgba(255,215,0,0.25);
-              border-radius: 10px;
-              padding: 10px 12px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              opacity: 0.85;
-            ">
-              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">② モアイロボMark2専用 神スタンド</span>
-              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
-            </div>
-
-            <!-- ③ -->
-            <div style="
-              background: rgba(0,0,0,0.5);
-              border: 1px dashed rgba(255,215,0,0.25);
-              border-radius: 10px;
-              padding: 10px 12px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              opacity: 0.85;
-            ">
-              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">③ ミニおすわりモアイキーホルダー</span>
-              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
-            </div>
-
-            <!-- ④ -->
-            <div style="
-              background: rgba(0,0,0,0.5);
-              border: 1px dashed rgba(255,215,0,0.25);
-              border-radius: 10px;
-              padding: 10px 12px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              opacity: 0.85;
-            ">
-              <span style="font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85); line-height: 1.35;">④ まちょいモアイメガネスタンド</span>
-              <span style="font-size: 9px; font-weight: 900; color: #ffd700; background: rgba(255,215,0,0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,215,0,0.2); white-space: nowrap; margin-left: 8px;">🔒 予告</span>
-            </div>
-          </div>
-          
-          <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 15px; line-height: 1.5;">
-            ※18:00以降に再び「金のモアイ」に出会うと、特別優待品【各7セット限定】の極秘ショップがアンロックされるぞ！
-          </div>
-          ` : `
-          <div style="font-size: 13px; color: #fff; margin-top: 10px; font-weight: 800; line-height: 1.6; letter-spacing: 0.8px;">
-            <span style="background: linear-gradient(90deg, transparent, rgba(255,215,0,0.25) 50%, transparent 100%); padding: 6px 0; display: block; color: #fff; font-size: clamp(12px, 3.8vw, 14px); font-weight: 900; border-top: 1px solid rgba(255,215,0,0.3); border-bottom: 1px solid rgba(255,215,0,0.3); text-shadow: 0 0 5px rgba(255,215,0,0.5);">
-              ✨ 【選ばれしVIP限定】秘密のシークレット直売所 ✨
-            </span>
-            <span style="color: #ffd700; font-size: 12px; display: block; margin-top: 10px; line-height: 1.6; text-align: center;">
-              遭遇確率わずか <strong style="font-size: 14px; text-shadow: 0 0 4px #ffd700;">7%</strong> の「金のモアイ」と交信した時だけ開く、超激レアな直売所じゃ！<br>
-              この画面を閉じると一旦閉まってしまうので、このラッキーな遭遇チャンスをお見逃しなく！<br>
-              幸運を記念し、ラッキーセブン<strong style="color: #ff3333; text-shadow: 0 0 8px rgba(255,51,51,0.6); font-size: 13px;">【各7セット限定】</strong>の極秘・特別優待品を用意したぞ。<br>
-              <span style="display: inline-block; background: rgba(255,51,51,0.15); border: 1px solid rgba(255,51,51,0.3); color: #ff4444; font-weight: 900; padding: 4px 12px; border-radius: 6px; margin-top: 8px; font-size: 11px; letter-spacing: 0.5px; animation: pulse 1.5s infinite;">
-                ⚠️ 本販売所は 6月5日(金) 23:59 をもって完全に閉鎖されます 🗿
-              </span>
-            </span>
-          </div>
-
-          <!-- 極秘商品リスト -->
-          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 18px; text-align: left;">
-            
-            <!-- ① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット -->
-            <div onclick="window.open('https://minne.com/items/45604230?code=dnroLkLN3M', '_blank')" style="
-              background: rgba(0,0,0,0.75);
-              border: 1px solid rgba(255,215,0,0.4);
-              border-radius: 12px;
-              padding: 14px 16px;
-              cursor: pointer;
-              transition: all 0.2s ease-in-out;
-              display: flex;
-              flex-direction: column;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">① ヨーグルト好きモアイロボmark2 EXゴールドエディション 神スタンドセット</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                <span style="font-size: 11px; font-weight: 900; color: #ffd700; text-shadow: 0 0 6px rgba(255,215,0,0.5); display: flex; align-items: center; gap: 4px; font-family: 'Outfit', 'Inter', sans-serif;">
-                  🎁 神価格/送料無料
-                </span>
-                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
-              </div>
-            </div>
-
-            <!-- ② モアイロボMark2専用 神スタンド -->
-            <div onclick="window.open('https://minne.com/items/45611657?code=i6WAylwj9e', '_blank')" style="
-              background: rgba(0,0,0,0.75);
-              border: 1px solid rgba(255,215,0,0.4);
-              border-radius: 12px;
-              padding: 14px 16px;
-              cursor: pointer;
-              transition: all 0.2s ease-in-out;
-              display: flex;
-              flex-direction: column;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">② モアイロボMark2専用 神スタンド</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                <span style="font-size: 11px; font-weight: 900; color: #00d2ff; text-shadow: 0 0 6px rgba(0,210,255,0.5); display: flex; align-items: center; gap: 4px; font-family: 'Outfit', 'Inter', sans-serif;">
-                  🚚 送料無料
-                </span>
-                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
-              </div>
-            </div>
-
-            <!-- ③ ミニおすわりモアイキーホルダー -->
-            <div onclick="window.open('https://minne.com/items/45611506?code=j9JRfHjRYW', '_blank')" style="
-              background: rgba(0,0,0,0.75);
-              border: 1px solid rgba(255,215,0,0.4);
-              border-radius: 12px;
-              padding: 14px 16px;
-              cursor: pointer;
-              transition: all 0.2s ease-in-out;
-              display: flex;
-              flex-direction: column;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">③ ミニおすわりモアイキーホルダー</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                <span style="font-size: 11px; font-weight: 900; color: #00d2ff; text-shadow: 0 0 6px rgba(0,210,255,0.5); display: flex; align-items: center; gap: 4px; font-family: 'Outfit', 'Inter', sans-serif;">
-                  🚚 送料無料
-                </span>
-                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
-              </div>
-            </div>
-
-            <!-- ④ まちょいモアイメガネスタンド -->
-            <div onclick="window.open('https://minne.com/items/45340967?code=U0jp1xb7cl', '_blank')" style="
-              background: rgba(0,0,0,0.75);
-              border: 1px solid rgba(255,215,0,0.4);
-              border-radius: 12px;
-              padding: 14px 16px;
-              cursor: pointer;
-              transition: all 0.2s ease-in-out;
-              display: flex;
-              flex-direction: column;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#ffd700'; this.style.boxShadow='0 8px 20px rgba(255,215,0,0.35)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,215,0,0.4)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.3)';" >
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                <span style="font-size: 13px; font-weight: 800; color: #fff; line-height: 1.45;">④ まちょいモアイメガネスタンド</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                <span style="font-size: 11px; font-weight: 900; color: #ffd700; text-shadow: 0 0 6px rgba(255,215,0,0.5); display: flex; align-items: center; gap: 4px; font-family: 'Outfit', 'Inter', sans-serif;">
-                  🎁 神価格/送料無料
-                </span>
-                <span style="font-size: 11px; font-weight: bold; color: #ffd700; background: rgba(255,215,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); letter-spacing: 0.5px;">🔐 VIP専用ページへ (minne) ▶</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
-        `}
-        ` : ''}
-
-        <!-- 💥 吹き飛ばしモード選択 -->
-        <div onclick="event.stopPropagation()" style="
-          background: rgba(20,0,0,0.95);
-          border: 2px solid #ff3333;
-          border-radius: 14px;
-          padding: 20px 28px;
-          text-align: center;
-          max-width: 360px;
-          width: 90%;
-          margin-top: 4px;
-          z-index: 200;
-        ">
-          <div style="font-size:18px; color:#ff4444; font-weight:bold; line-height:1.6; margin-bottom:14px;">
-            😤 腹が立ってきた？<br>私を吹き飛ばしたい？
-          </div>
-          <div style="display:flex; gap:14px; justify-content:center;">
-            <button onclick="window.startRevengeMode()" style="
-              background: linear-gradient(135deg,#ff2200,#ff6600);
-              color:white; border:none;
-              padding:13px 30px; border-radius:10px;
-              font-size:17px; font-weight:bold;
-              cursor:pointer; letter-spacing:1px;
-              box-shadow: 0 4px 14px rgba(255,50,0,0.5);
-            ">はい 💥</button>
-            <button onclick="location.reload()" style="
-              background:#333; color:rgba(255,255,255,0.8);
-              border:1px solid #555;
-              padding:13px 30px; border-radius:10px;
-              font-size:17px; cursor:pointer;
-            ">いいえ</button>
-          </div>
-        </div>
-
-        <!-- ▼▼▼ イベント情報 ▼▼▼ -->
-        <div style="width: 100%; max-width: 550px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; background: #000; z-index: 101;">
-            <div style="text-align: center; color: #fff; font-family: 'Outfit', sans-serif; font-weight: bold; text-shadow: 0px 2px 5px rgba(0,0,0,1);">
-                <div style="font-size: clamp(16px, 4.5vw, 22px); margin-bottom: 4px;">HMJ（ハンドメイドインジャパン）</div>
-                <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">日程: 7月11日(土)・12日(日)</div>
-                <div style="font-size: clamp(14px, 4vw, 18px); margin-bottom: 4px;">会場: 東京ビッグサイト</div>
-                <div style="font-size: clamp(14px, 4vw, 18px);">ブースNo: 後日発表！ (Kanazawa Moataro)</div>
-            </div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="event.stopPropagation(); window.open('https://hmj-fes.jp/', '_blank')" style="
-                    background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.6); color: #fff;
-                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
-                    font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
-                    display: flex; align-items: center; gap: 6px; cursor: pointer;
-                    backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-                ">HMJ公式サイト 🌐</button>
-                <button onclick="event.stopPropagation(); location.href='catalog.html?v=20260526_1'" style="
-                    background: rgba(0,210,255,0.15); border: 2px solid rgba(0,210,255,0.6); color: #00d2ff;
-                    padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 18px); border-radius: 20px;
-                    font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
-                    display: flex; align-items: center; gap: 6px; cursor: pointer;
-                    backdrop-filter: blur(4px); box-shadow: 0 4px 12px rgba(0,210,255,0.2);
-                ">📋 お品書き</button>
-            </div>
-        </div>
-        <!-- ▲▲▲ イベント情報 ここまで ▲▲▲ -->
-      `;
-
-      if (hitByGold && isBeforeStart) {
-        const timerEl = document.getElementById('gold-countdown-timer');
-        if (timerEl) {
-          const updateCountdown = () => {
-            const now = Date.now();
-            const diff = targetTime - now;
-            if (diff <= 0) {
-              clearInterval(window.goldCountdownInterval);
-              location.reload();
-              return;
-            }
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
-            const pad = (n) => String(n).padStart(2, '0');
-            timerEl.innerHTML = `
-              <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.35); padding: 8px 12px; border-radius: 8px; min-width: 50px;">
-                <div style="font-size: 20px; font-weight: 900; color: #ffd700; font-family: 'Outfit', sans-serif;">${pad(hours)}</div>
-                <div style="font-size: 8px; color: rgba(255,255,255,0.6); font-weight: bold; margin-top: 1px;">時間</div>
-              </div>
-              <div style="font-size: 20px; font-weight: 900; color: #ffd700; animation: pulse 1s infinite;">:</div>
-              <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.35); padding: 8px 12px; border-radius: 8px; min-width: 50px;">
-                <div style="font-size: 20px; font-weight: 900; color: #ffd700; font-family: 'Outfit', sans-serif;">${pad(minutes)}</div>
-                <div style="font-size: 8px; color: rgba(255,255,255,0.6); font-weight: bold; margin-top: 1px;">分</div>
-              </div>
-              <div style="font-size: 20px; font-weight: 900; color: #ffd700; animation: pulse 1s infinite;">:</div>
-              <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.35); padding: 8px 12px; border-radius: 8px; min-width: 50px;">
-                <div style="font-size: 20px; font-weight: 900; color: #ffd700; font-family: 'Outfit', sans-serif;">${pad(seconds)}</div>
-                <div style="font-size: 8px; color: rgba(255,255,255,0.6); font-weight: bold; margin-top: 1px;">秒</div>
-              </div>
-            `;
-          };
-          updateCountdown();
-          if (window.goldCountdownInterval) clearInterval(window.goldCountdownInterval);
-          window.goldCountdownInterval = setInterval(updateCountdown, 1000);
-        }
-      }
-
-      // ランキング機能（現在オフ）
-      // const overlay = document.getElementById('name-input-overlay');
-      // const scoreDisplay = document.getElementById('final-score-display');
-      // if (overlay && scoreDisplay) {
-      //   scoreDisplay.textContent = score;
-      //   overlay.classList.add('active');
-      // }
-      // window._currentScore = score;
-    }
-
-    // 画面外削除
-    if (yogurt.position.z > 10) {
-      scene.remove(yogurt);
-      yogurts.splice(index, 1);
-    }
-  });
-
-  // 吹き飛びスプライト更新 (衰見モード)
-  for (let i = blownSprites.length - 1; i >= 0; i--) {
-    const b = blownSprites[i];
-    b.mesh.position.x += b.vx;
-    b.mesh.position.y += b.vy;
-    b.mesh.position.z += b.vz;
-    b.mesh.rotation.x += b.rx;
-    b.mesh.rotation.z += b.rz;
-    b.vy -= 0.012; // 重力
-    if (b.mesh.position.z > 18 || b.mesh.position.y < -6) {
-      scene.remove(b.mesh);
-      blownSprites.splice(i, 1);
-    }
-  }
-
-  renderer.render(scene, camera);
-}
-
-// ===== 8-bit BGM Generator =====
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-// ===== 作者の悲鳴（uservoice.m4a）のロード =====
 let userVoiceBuffer = null;
+
 fetch('./uservoice.m4a')
-  .then(res => res.arrayBuffer())
-  .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
-  .then(buffer => {
+  .then((res) => res.arrayBuffer())
+  .then((buffer) => audioCtx.decodeAudioData(buffer))
+  .then((buffer) => {
     userVoiceBuffer = buffer;
-    console.log("🔊 uservoice.m4a loaded successfully!");
   })
-  .catch(err => {
-    console.warn("⚠️ Failed to load uservoice.m4a:", err);
+  .catch(() => {});
+
+function createFallbackMoai() {
+  const stone = new THREE.MeshStandardMaterial({
+    color: 0x8f9690,
+    roughness: 0.82,
+    metalness: 0.12,
   });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x252b2b, roughness: 0.8 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.1, 1.1), stone);
+  body.position.y = 1.25;
+  body.castShadow = true;
+  moai.add(body);
+
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.72, 0.55), stone);
+  nose.position.set(0, 1.47, -0.72);
+  nose.castShadow = true;
+  moai.add(nose);
+
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.04), dark);
+  eyeL.position.set(-0.32, 1.82, -0.58);
+  moai.add(eyeL);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.32;
+  moai.add(eyeR);
+
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.7, 0.45), stone);
+  legL.position.set(-0.36, 0.35, 0);
+  legL.castShadow = true;
+  moai.add(legL);
+  const legR = legL.clone();
+  legR.position.x = 0.36;
+  moai.add(legR);
+}
+
+function loadMoaiModel() {
+  createFallbackMoai();
+  gltfLoader.load(
+    './moai.glb',
+    (gltf) => {
+      while (moai.children.length) moai.remove(moai.children[0]);
+      const model = gltf.scene;
+      model.scale.setScalar(1.35);
+      model.rotation.y = -Math.PI / 2;
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      moai.add(model);
+    },
+    undefined,
+    () => {}
+  );
+}
+
+function createAuthor() {
+  const texture = textureLoader.load('./user.png');
+  const spriteMat = new THREE.MeshStandardMaterial({
+    map: texture,
+    transparent: true,
+    side: THREE.DoubleSide,
+    roughness: 0.55,
+  });
+  const sprite = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 4.2), spriteMat);
+  sprite.position.y = 2.1;
+  sprite.castShadow = true;
+  author.add(sprite);
+
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: 0xff5f45,
+    emissive: 0x8a1200,
+    emissiveIntensity: 0.7,
+    roughness: 0.45,
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.08, 8, 36), ringMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.12;
+  author.add(ring);
+
+  authors.push(author);
+  for (let i = 1; i < 3; i++) {
+    const clone = author.clone(true);
+    scene.add(clone);
+    authors.push(clone);
+  }
+  resetAuthorPositions();
+}
+
+function createWorld() {
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(170, 170, 60, 60),
+    new THREE.MeshStandardMaterial({ color: 0x5ea760, roughness: 0.95 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  world.add(ground);
+
+  const grid = new THREE.GridHelper(160, 40, 0xd4f7b1, 0x7fbf72);
+  grid.position.y = 0.02;
+  grid.material.opacity = 0.18;
+  grid.material.transparent = true;
+  world.add(grid);
+
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0xcabf94, roughness: 0.9 });
+  const roadA = new THREE.Mesh(new THREE.BoxGeometry(8, 0.04, 150), roadMat);
+  roadA.receiveShadow = true;
+  world.add(roadA);
+  const roadB = new THREE.Mesh(new THREE.BoxGeometry(150, 0.045, 7), roadMat);
+  roadB.receiveShadow = true;
+  world.add(roadB);
+
+  addLandmark(-24, -18, 0x50b6df, 'atelier');
+  addLandmark(25, 18, 0xf0b84d, 'forge');
+  addLandmark(-28, 25, 0x96d56a, 'garden');
+  addLandmark(24, -26, 0xdf6d63, 'arena');
+  addSafetyZone(-24, -18, 7.4);
+  addSafetyZone(25, 18, 7.4);
+  addSafetyZone(-28, 25, 7.4);
+  createEscapeGate();
+
+  for (let i = 0; i < 95; i++) {
+    const x = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
+    const z = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
+    if (Math.abs(x) < 6 || Math.abs(z) < 6) continue;
+    const height = THREE.MathUtils.randFloat(1.6, 6.5);
+    const rock = new THREE.Mesh(
+      new THREE.CylinderGeometry(THREE.MathUtils.randFloat(0.45, 1.1), THREE.MathUtils.randFloat(0.55, 1.25), height, 6),
+      new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.08, 0.25, THREE.MathUtils.randFloat(0.45, 0.62)), roughness: 0.88 })
+    );
+    rock.position.set(x, height / 2, z);
+    rock.rotation.y = Math.random() * Math.PI;
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    world.add(rock);
+    props.push(rock);
+  }
+
+  for (let i = 0; i < SEALS_REQUIRED; i++) {
+    const angle = (i / SEALS_REQUIRED) * Math.PI * 2;
+    const radius = 18 + Math.sin(i * 1.7) * 14;
+    addCrystal(Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+}
+
+function addSafetyZone(x, z, radius) {
+  const zone = {
+    center: new THREE.Vector3(x, 0, z),
+    radius,
+  };
+  safetyZones.push(zone);
+
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: 0x65ff9b,
+    emissive: 0x1dc66a,
+    emissiveIntensity: 0.5,
+    transparent: true,
+    opacity: 0.28,
+    roughness: 0.35,
+    side: THREE.DoubleSide,
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 48), ringMat);
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.set(x, 0.08, z);
+  world.add(disc);
+
+  const border = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, 0.08, 8, 80),
+    new THREE.MeshStandardMaterial({ color: 0x9dffbf, emissive: 0x32ff8a, emissiveIntensity: 0.9, roughness: 0.25 })
+  );
+  border.rotation.x = Math.PI / 2;
+  border.position.set(x, 0.16, z);
+  world.add(border);
+
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.22, 3.2, 12),
+    new THREE.MeshStandardMaterial({ color: 0xd8ffe5, emissive: 0x48ff93, emissiveIntensity: 0.45 })
+  );
+  post.position.set(x, 1.6, z);
+  post.castShadow = true;
+  world.add(post);
+}
+
+function createEscapeGate() {
+  escapeGate.position.set(0, 0, 58);
+
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x323d42, roughness: 0.78, metalness: 0.12 });
+  const glowMat = new THREE.MeshStandardMaterial({
+    color: 0x77f4ff,
+    emissive: 0x1edcff,
+    emissiveIntensity: 0.35,
+    roughness: 0.22,
+  });
+
+  const left = new THREE.Mesh(new THREE.BoxGeometry(1.3, 7.8, 1.3), pillarMat);
+  left.position.set(-3.2, 3.9, 0);
+  left.castShadow = true;
+  escapeGate.add(left);
+
+  const right = left.clone();
+  right.position.x = 3.2;
+  escapeGate.add(right);
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(7.8, 1.2, 1.2), pillarMat);
+  top.position.set(0, 7.5, 0);
+  top.castShadow = true;
+  escapeGate.add(top);
+
+  const portal = new THREE.Mesh(new THREE.PlaneGeometry(4.7, 6.2), glowMat);
+  portal.position.set(0, 3.7, 0.04);
+  portal.userData.portal = true;
+  escapeGate.add(portal);
+
+  const marker = new THREE.Mesh(new THREE.TorusGeometry(4.1, 0.08, 8, 42), glowMat);
+  marker.rotation.x = Math.PI / 2;
+  marker.position.y = 0.15;
+  escapeGate.add(marker);
+}
+
+function addLandmark(x, z, color, type) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+  world.add(group);
+
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.8, 4.5, 0.45, 8),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.08 })
+  );
+  base.position.y = 0.22;
+  base.receiveShadow = true;
+  base.castShadow = true;
+  group.add(base);
+
+  const spire = new THREE.Mesh(
+    new THREE.ConeGeometry(1.25, 4.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0xf4f1db, emissive: color, emissiveIntensity: 0.13, roughness: 0.5 })
+  );
+  spire.position.y = 2.5;
+  spire.castShadow = true;
+  group.add(spire);
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 18, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: color, emissiveIntensity: 1.4, roughness: 0.2 })
+  );
+  orb.position.y = 4.7;
+  orb.userData.type = type;
+  group.add(orb);
+}
+
+function addCrystal(x, z) {
+  const crystal = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.72, 0),
+    new THREE.MeshStandardMaterial({
+      color: 0x9ff7ff,
+      emissive: 0x2ce8ff,
+      emissiveIntensity: 0.8,
+      roughness: 0.25,
+      metalness: 0.2,
+    })
+  );
+  crystal.position.set(x, 1.0, z);
+  crystal.userData.baseY = crystal.position.y;
+  crystal.castShadow = true;
+  world.add(crystal);
+  pickupCrystals.push(crystal);
+}
+
+function setHud() {
+  if (hud.label) hud.label.textContent = 'SEALS';
+  if (hud.bestLabel) hud.bestLabel.textContent = 'STAMINA';
+  if (hud.current) hud.current.textContent = `${Math.min(crystals, SEALS_REQUIRED)}/${SEALS_REQUIRED}`;
+  if (hud.today) hud.today.textContent = String(Math.max(0, Math.round(energy)));
+  if (hud.hint) {
+    const distance = getNearestAuthorDistance();
+    const safeZone = getCurrentSafetyZone();
+    const danger = safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
+    const goal = escapeOpen ? 'ゲートへ逃げ込め' : `青い封印石を${SEALS_REQUIRED}個集めろ`;
+    hud.hint.textContent = `WASD/矢印: カメラ基準移動  ドラッグ: 視点  SPACE/SHIFT/DASH: ダッシュ  最短距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
+  }
+}
+
+function getNearestAuthorDistance() {
+  if (!authors.length) return moai.position.distanceTo(author.position);
+  return authors.reduce((nearest, enemy) => Math.min(nearest, moai.position.distanceTo(enemy.position)), Infinity);
+}
+
+function getNearestAuthor() {
+  let nearest = author;
+  let nearestDistance = Infinity;
+  authors.forEach((enemy) => {
+    const distance = moai.position.distanceTo(enemy.position);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = enemy;
+    }
+  });
+  return nearest;
+}
+
+function getCurrentSafetyZone() {
+  return safetyZones.find((zone) => moai.position.distanceTo(zone.center) < zone.radius) || null;
+}
+
+function resetAuthorPositions() {
+  const starts = [
+    [0, -42],
+    [-34, -28],
+    [35, -18],
+  ];
+  authors.forEach((enemy, index) => {
+    const [x, z] = starts[index] || [THREE.MathUtils.randFloatSpread(50), -42 - index * 6];
+    enemy.position.set(x, 0, z);
+  });
+}
 
 function playUserVoice() {
-  if (!userVoiceBuffer || !audioCtx) return;
-  // AudioContextが中断している場合は再開する
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (!userVoiceBuffer) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   const source = audioCtx.createBufferSource();
   source.buffer = userVoiceBuffer;
   source.connect(audioCtx.destination);
   source.start(0);
 }
 
-function playNote(frequency, duration, time) {
+function blip(frequency, duration = 0.08, volume = 0.08, type = 'square') {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-
-  osc.type = 'square';
+  osc.type = type;
   osc.frequency.value = frequency;
-
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-
-  osc.start(time);
-
-  // Envelope
-  gain.gain.setValueAtTime(0.1, time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + duration - 0.05);
-
-  osc.stop(time + duration);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
 }
 
-// Simple Melody (C Major Arpeggio-ish)
-const melody = [
-  261.63, 0, 329.63, 0, 392.00, 0, 523.25, 0, // C E G C
-  392.00, 0, 329.63, 0, 261.63, 0, 196.00, 0, // G E C lowG
-  220.00, 0, 261.63, 0, 329.63, 0, 440.00, 0, // A C E A
-  329.63, 0, 261.63, 0, 220.00, 0, 196.00, 0  // E C A lowG
-];
+function makeShot(owner, position, direction) {
+  const isPlayer = owner === 'player';
+  const shot = new THREE.Mesh(
+    new THREE.SphereGeometry(isPlayer ? 0.24 : 0.32, 16, 10),
+    new THREE.MeshStandardMaterial({
+      color: isPlayer ? 0x77f4ff : 0xff5f45,
+      emissive: isPlayer ? 0x20d7ff : 0xff2200,
+      emissiveIntensity: 1.8,
+      roughness: 0.25,
+    })
+  );
+  shot.position.copy(position);
+  shot.position.y += isPlayer ? 1.25 : 2.2;
+  shot.userData.velocity = direction.clone().normalize().multiplyScalar(isPlayer ? SHOT_SPEED : 16);
+  shot.userData.life = isPlayer ? 1.5 : 2.4;
+  scene.add(shot);
+  (isPlayer ? playerShots : authorShots).push(shot);
+  blip(isPlayer ? 720 : 180, isPlayer ? 0.055 : 0.12, isPlayer ? 0.05 : 0.075, isPlayer ? 'square' : 'sawtooth');
+}
 
-let nextNoteTime = 0;
-let noteIndex = 0;
-let isPlayingBGM = false;
-let tempo = 0.15; // 秒/音
+function firePlayerShot() {
+  if (fireCooldown > 0 || energy < 8 || gameOver) return;
+  const direction = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), moai.rotation.y);
+  makeShot('player', moai.position, direction);
+  fireCooldown = 0.18;
+  energy -= 8;
+}
 
-function scheduleMusic() {
-  if (!isPlayingBGM) return;
+function movePlayer(dt) {
+  const xInput = Number(keys.right) - Number(keys.left);
+  const zInput = Number(keys.forward) - Number(keys.backward);
+  const input = new THREE.Vector3(xInput, 0, zInput);
+  const hasInput = input.lengthSq() > 0;
 
-  while (nextNoteTime < audioCtx.currentTime + 0.1) {
-    const freq = melody[noteIndex % melody.length];
-    if (freq > 0) {
-      playNote(freq, tempo, nextNoteTime);
+  if (hasInput) {
+    input.normalize();
+    const cameraForward = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+    const cameraRight = new THREE.Vector3(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
+    const moveDir = cameraForward.multiplyScalar(input.z).add(cameraRight.multiplyScalar(input.x)).normalize();
+    const sprinting = keys.fire && energy > 3;
+    const speed = sprinting ? SPRINT_SPEED : PLAYER_SPEED;
+
+    playerVelocity.lerp(moveDir.multiplyScalar(speed), 1 - Math.pow(0.0003, dt));
+    moai.position.addScaledVector(playerVelocity, dt);
+    moai.rotation.y = THREE.MathUtils.lerp(moai.rotation.y, Math.atan2(moveDir.x, moveDir.z), 1 - Math.pow(0.0001, dt));
+    moai.rotation.z = Math.sin(performance.now() * 0.018) * (sprinting ? 0.09 : 0.055);
+    energy = THREE.MathUtils.clamp(energy + (sprinting ? -22 : 6) * dt, 0, 100);
+  } else {
+    playerVelocity.multiplyScalar(Math.pow(0.02, dt));
+    moai.rotation.z *= 0.86;
+    energy = Math.min(100, energy + 12 * dt);
+  }
+
+  moai.position.x = THREE.MathUtils.clamp(moai.position.x, -WORLD_SIZE, WORLD_SIZE);
+  moai.position.z = THREE.MathUtils.clamp(moai.position.z, -WORLD_SIZE, WORLD_SIZE);
+}
+
+function updateAuthors(dt) {
+  authors.forEach((enemy, index) => updateAuthor(dt, enemy, index));
+}
+
+function updateAuthor(dt, enemy = author, index = 0) {
+  const safeZone = getCurrentSafetyZone();
+  const toPlayer = moai.position.clone().sub(enemy.position);
+  const distance = toPlayer.length();
+  const direction = distance > 0.001 ? toPlayer.normalize() : new THREE.Vector3(0, 0, 1);
+  const nearBoost = THREE.MathUtils.clamp((28 - distance) / 28, 0, 1);
+  const sealBoost = crystals * 0.32;
+  const speed = AUTHOR_SPEED + sealBoost + nearBoost * 2.4 + index * 0.28;
+  const wobble = Math.sin(performance.now() * 0.004 + index * 2.1) * 0.28;
+  let chaseDir = direction
+    .clone()
+    .add(new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(wobble))
+    .normalize();
+
+  if (safeZone) {
+    const fromZone = enemy.position.clone().sub(safeZone.center);
+    const zoneDistance = fromZone.length();
+    if (zoneDistance < safeZone.radius + 4.2) {
+      chaseDir = fromZone.lengthSq() > 0.001 ? fromZone.normalize() : new THREE.Vector3(0, 0, -1);
+      enemy.position.addScaledVector(chaseDir, (speed + 2.2) * dt);
+    } else {
+      const guardPoint = safeZone.center.clone().add(direction.clone().multiplyScalar(safeZone.radius + 5.3));
+      const toGuard = guardPoint.sub(enemy.position);
+      if (toGuard.lengthSq() > 0.2) {
+        enemy.position.addScaledVector(toGuard.normalize(), speed * 0.45 * dt);
+      }
     }
-
-    // speed変数に応じてテンポを速くする（ゲーム連動！）
-    // speed初期値0.2 -> 1.0くらいまで上がる想定
-    // speedが上がるとtempo数値を小さくする
-    // speed=0.2 -> tempo=0.15
-    // speed=1.0 -> tempo=0.08
-    const currentTempo = Math.max(0.05, 0.15 - (speed - 0.2) * 0.1);
-
-    nextNoteTime += currentTempo;
-    noteIndex++;
+  } else {
+    enemy.position.addScaledVector(chaseDir, speed * dt);
   }
-  requestAnimationFrame(scheduleMusic);
+
+  if (!safeZone && distance < 2.15) {
+    playerHealth = 0;
+    screenShake = 0.7;
+    finishGame(false);
+    return;
+  }
+
+  enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
+  enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
+  enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+  enemy.children.forEach((child, childIndex) => {
+    child.rotation.z += childIndex === 1 ? dt * (1.5 + index * 0.22) : 0;
+  });
+
+  authorTauntTimer -= dt;
+  if (index === 0 && authorTauntTimer <= 0 && distance < 22) {
+    playUserVoice();
+    authorTauntTimer = distance < 9 ? 3.8 : 6.5;
+  }
+
+  panicTimer = Math.max(panicTimer, !safeZone && distance < 12 ? 0.35 : 0);
 }
 
+function updateShots(dt) {
+  updateShotArray(playerShots, dt, (shot, index) => {
+    if (shot.position.distanceTo(author.position) < 2.2) {
+      authorHealth -= 8 + crystals * 0.5;
+      screenShake = 0.18;
+      removeShot(playerShots, index);
+      blip(95, 0.13, 0.12, 'sawtooth');
+      if (authorHealth <= 0) finishGame(true);
+    }
+  });
 
-// 初期描画（ループ前）
-renderer.render(scene, camera);
+  updateShotArray(authorShots, dt, (shot, index) => {
+    if (shot.position.distanceTo(moai.position) < 1.25) {
+      playerHealth -= 11;
+      screenShake = 0.25;
+      removeShot(authorShots, index);
+      if (playerHealth <= 0) finishGame(false);
+    }
+  });
+}
 
-// スタート画面クリックで開始（リスタート対応）
-document.getElementById('start-screen').addEventListener('click', () => {
-  // ゲーム状態リセット
-  gameOver = false;
-  score = 0;
-  speed = 0.2;
-  spawnTimer = 0;
-  isLookingBehind = false;
-  lookBehindTimer = 0;
-  targetRotationY = Math.PI;
+function updateShotArray(shots, dt, hitCheck) {
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const shot = shots[i];
+    shot.position.addScaledVector(shot.userData.velocity, dt);
+    shot.userData.life -= dt;
+    shot.scale.setScalar(1 + Math.sin(performance.now() * 0.03 + i) * 0.12);
+    hitCheck(shot, i);
+    if (!shots.includes(shot)) continue;
+    if (shot.userData.life <= 0 || Math.abs(shot.position.x) > WORLD_SIZE + 15 || Math.abs(shot.position.z) > WORLD_SIZE + 15) {
+      removeShot(shots, i);
+    }
+  }
+}
 
-  // スコア表示リセット
-  document.getElementById('current-score-val').innerText = 0;
-  updateBestDisplay();
+function removeShot(shots, index) {
+  const [shot] = shots.splice(index, 1);
+  if (shot) scene.remove(shot);
+}
 
-  // 既存のヨーグルト（障害物）を全削除
-  yogurts.forEach(y => scene.remove(y));
-  yogurts.length = 0;
-
-  // モアイ位置リセット
-  moai.position.set(0, 0, 0);
-  moai.rotation.z = 0;
-
-  // スタート画面を非表示
-  document.getElementById('start-screen').style.display = 'none';
-
-  // AudioContext再開（ブラウザポリシー対応）
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+function updatePickups(dt) {
+  for (let i = pickupCrystals.length - 1; i >= 0; i--) {
+    const crystal = pickupCrystals[i];
+    crystal.rotation.y += dt * 2.7;
+    crystal.position.y = crystal.userData.baseY + Math.sin(performance.now() * 0.003 + i) * 0.18;
+    if (crystal.position.distanceTo(moai.position) < 1.8) {
+      crystals++;
+      energy = 100;
+      playerHealth = Math.min(100, playerHealth + 9);
+      world.remove(crystal);
+      pickupCrystals.splice(i, 1);
+      blip(980, 0.16, 0.1, 'triangle');
+      if (crystals >= SEALS_REQUIRED) {
+        escapeOpen = true;
+        blip(1240, 0.35, 0.12, 'triangle');
+      }
+    }
   }
 
-  isPlayingBGM = true;
-  nextNoteTime = audioCtx.currentTime;
-  scheduleMusic();
-
-  // プレイ人数のカウントアップ
-  if (window.logPlayerStart) window.logPlayerStart();
-
-  // 初回のみアニメーションループ開始
-  if (!gameStarted) {
-    gameStarted = true;
-    animate();
+  const portal = escapeGate.children.find((child) => child.userData.portal);
+  if (portal && portal.material) {
+    portal.material.emissiveIntensity = escapeOpen ? 1.8 + Math.sin(performance.now() * 0.01) * 0.45 : 0.18;
+    portal.material.opacity = escapeOpen ? 0.92 : 0.32;
+    portal.material.transparent = true;
   }
+  escapeGate.rotation.y = Math.sin(performance.now() * 0.001) * 0.08;
+
+  if (escapeOpen && moai.position.distanceTo(escapeGate.position) < 4.7) {
+    finishGame(true);
+  }
+}
+
+function updateCamera(dt) {
+  const desiredDistance = THREE.MathUtils.lerp(cameraDistance, keys.fire && energy > 3 ? 12.5 : 10.5, 1 - Math.pow(0.001, dt));
+  cameraDistance = desiredDistance;
+  const horizontal = Math.cos(cameraPitch) * desiredDistance;
+  const desired = moai.position.clone().add(new THREE.Vector3(
+    Math.sin(cameraYaw) * horizontal,
+    2.2 + Math.sin(cameraPitch) * desiredDistance,
+    Math.cos(cameraYaw) * horizontal
+  ));
+
+  if (screenShake > 0) {
+    desired.x += THREE.MathUtils.randFloatSpread(screenShake);
+    desired.y += THREE.MathUtils.randFloatSpread(screenShake);
+    screenShake = Math.max(0, screenShake - dt);
+  }
+  camera.position.lerp(desired, 1 - Math.pow(0.00005, dt));
+  const nearestAuthor = getNearestAuthor();
+  const authorDistance = moai.position.distanceTo(nearestAuthor.position);
+  const lookBlend = THREE.MathUtils.clamp((24 - authorDistance) / 44, 0, 0.28);
+  const lookTarget = moai.position.clone().lerp(nearestAuthor.position, lookBlend).add(new THREE.Vector3(0, 1.85, 0));
+  camera.lookAt(lookTarget);
+}
+
+function finishGame(won) {
+  if (gameOver) return;
+  gameOver = true;
+  victory = won;
+  if (window.logScore) window.logScore(Math.round(won ? 1000 + energy * 3 + crystals * 80 : crystals * 80));
+  const title = won ? '脱出成功！' : '作者につかまった';
+  const body = won
+    ? '封印石を集めきり、ゲートから逃げ切った。もう一度タップで再挑戦。'
+    : '足音が近い時は視点を回して進路を作り、SPACE/SHIFTでダッシュ。タップで再挑戦。';
+  hud.start.style.display = 'flex';
+  hud.start.style.opacity = '1';
+  hud.start.innerHTML = `
+    <div class="start-card open-world-card">
+      <h1>${title}</h1>
+      <p class="tap-msg">${body}</p>
+      <div class="mission-readout">
+        <span>封印石 ${Math.min(crystals, SEALS_REQUIRED)}/${SEALS_REQUIRED}</span>
+        <span>スタミナ ${Math.max(0, Math.round(energy))}</span>
+      </div>
+      <button class="start-button" type="button">RESTART</button>
+    </div>
+  `;
+}
+
+function resetGame() {
   gameStarted = true;
+  gameOver = false;
+  victory = false;
+  playerHealth = 100;
+  authorHealth = 140;
+  energy = 100;
+  crystals = 0;
+  escapeOpen = false;
+  panicTimer = 0;
+  fireCooldown = 0;
+  authorFireCooldown = 1.0;
+  authorTauntTimer = 1.4;
+  screenShake = 0;
+  cameraYaw = Math.PI;
+  cameraPitch = 0.46;
+  cameraDistance = 10.5;
+  playerVelocity.set(0, 0, 0);
+
+  playerShots.splice(0).forEach((shot) => scene.remove(shot));
+  authorShots.splice(0).forEach((shot) => scene.remove(shot));
+  pickupCrystals.splice(0).forEach((crystal) => world.remove(crystal));
+
+  moai.position.set(0, 0, 28);
+  moai.rotation.set(0, 0, 0);
+  resetAuthorPositions();
+
+  for (let i = 0; i < SEALS_REQUIRED; i++) {
+    const angle = (i / SEALS_REQUIRED) * Math.PI * 2;
+    const radius = 18 + Math.sin(i * 1.7) * 14;
+    addCrystal(Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+
+  if (hud.start) hud.start.style.display = 'none';
+  if (window.logPlayerStart) window.logPlayerStart();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.033);
+
+  if (gameStarted && !gameOver) {
+    fireCooldown = Math.max(0, fireCooldown - dt);
+    cameraYaw += (Number(keys.lookLeft) - Number(keys.lookRight)) * 2.8 * dt;
+    panicTimer = Math.max(0, panicTimer - dt);
+    movePlayer(dt);
+    updateAuthors(dt);
+    updateShots(dt);
+    updatePickups(dt);
+  }
+
+  props.forEach((prop, i) => {
+    if (i % 13 === 0) prop.rotation.y += dt * 0.08;
+  });
+
+  updateCamera(dt);
+  setHud();
+  renderer.render(scene, camera);
+}
+
+function bindKey(code, pressed) {
+  if (code === 'KeyW' || code === 'ArrowUp') keys.forward = pressed;
+  if (code === 'KeyS' || code === 'ArrowDown') keys.backward = pressed;
+  if (code === 'KeyA' || code === 'ArrowLeft') keys.left = pressed;
+  if (code === 'KeyD' || code === 'ArrowRight') keys.right = pressed;
+  if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyJ' || code === 'KeyK') keys.fire = pressed;
+  if (code === 'KeyQ') keys.lookLeft = pressed;
+  if (code === 'KeyE') keys.lookRight = pressed;
+}
+
+window.addEventListener('keydown', (event) => {
+  bindKey(event.code, true);
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
 });
 
-// リサイズ対応
-window.addEventListener("resize", () => {
+window.addEventListener('keyup', (event) => {
+  bindKey(event.code, false);
+});
+
+renderer.domElement.addEventListener('pointerdown', (event) => {
+  pointerLookActive = true;
+  lastPointerX = event.clientX;
+  lastPointerY = event.clientY;
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', (event) => {
+  if (!pointerLookActive) return;
+  const dx = event.clientX - lastPointerX;
+  const dy = event.clientY - lastPointerY;
+  lastPointerX = event.clientX;
+  lastPointerY = event.clientY;
+  cameraYaw -= dx * 0.006;
+  cameraPitch = THREE.MathUtils.clamp(cameraPitch + dy * 0.0035, 0.18, 0.82);
+});
+
+renderer.domElement.addEventListener('pointerup', (event) => {
+  pointerLookActive = false;
+  renderer.domElement.releasePointerCapture?.(event.pointerId);
+});
+
+renderer.domElement.addEventListener('pointercancel', () => {
+  pointerLookActive = false;
+});
+
+function setupTouchButton(button, keyName) {
+  if (!button) return;
+  const start = (event) => {
+    event.preventDefault();
+    keys[keyName] = true;
+  };
+  const end = (event) => {
+    event.preventDefault();
+    keys[keyName] = false;
+  };
+  button.addEventListener('touchstart', start, { passive: false });
+  button.addEventListener('touchend', end, { passive: false });
+  button.addEventListener('touchcancel', end, { passive: false });
+  button.addEventListener('mousedown', start);
+  button.addEventListener('mouseup', end);
+  button.addEventListener('mouseleave', end);
+}
+
+setupTouchButton(hud.left, 'left');
+setupTouchButton(hud.right, 'right');
+setupTouchButton(hud.up, 'forward');
+setupTouchButton(hud.down, 'backward');
+setupTouchButton(hud.fire, 'fire');
+
+if (hud.fullscreen) {
+  hud.fullscreen.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      hud.fullscreen.textContent = 'EXIT';
+    } else {
+      document.exitFullscreen();
+      hud.fullscreen.textContent = 'FULLSCREEN';
+    }
+  });
+}
+
+if (hud.start) {
+  hud.start.addEventListener('click', resetGame);
+}
+
+window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ===== 吹き飛ばしモード起動 =====
-window.startRevengeMode = () => {
-  revengeMode = true;
-  revengeScore = 0;
-  gameOver = false;
-  speed = 0.35; // 少し速めにして爽快感を出す！
-  spawnTimer = 0;
-  isLookingBehind = false;
-  lookBehindTimer = 0;
-  targetRotationY = Math.PI / 2;
-
-  // スコア表示リセット
-  document.getElementById('current-score-val').innerText = 0;
-  
-  // スコア表示のラベルを「💥 撃破数」的なものに変える（遊び心）
-  const scoreLabel = document.querySelector('.score-label') || document.getElementById('score-label');
-  if (scoreLabel) {
-    scoreLabel.innerHTML = 'BLASTS: <span id="current-score-val">0</span>';
-  } else {
-    // もしラベル要素がなければ作成するか、既存の表示を更新
-    const curVal = document.getElementById('current-score-val');
-    if (curVal) curVal.innerText = 0;
-  }
-
-  // 既存のオブジェクトを全削除
-  yogurts.forEach(y => scene.remove(y));
-  yogurts.length = 0;
-  blownSprites.forEach(b => scene.remove(b.mesh));
-  blownSprites.length = 0;
-
-  // モアイ位置リセット
-  moai.position.set(0, 0, 0);
-  moai.rotation.z = 0;
-
-  // スタート画面を非表示
-  document.getElementById('start-screen').style.display = 'none';
-
-  // 💥 スッキリしたボタンを表示
-  const backBtn = document.getElementById('revenge-back-btn');
-  if (backBtn) backBtn.style.display = 'block';
-
-  // AudioContext再開
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-
-  isPlayingBGM = true;
-  nextNoteTime = audioCtx.currentTime;
-  scheduleMusic();
-
-  if (!gameStarted) {
-    gameStarted = true;
-    animate();
-  }
-  gameStarted = true;
-};
-
-// ===== スタート画面に戻る =====
-window.stopRevengeMode = () => {
-  // ページを再読み込みして完全にクリーンな初期スタート画面に戻る
-  location.reload();
-};
-
-
+loadMoaiModel();
+createAuthor();
+createWorld();
+moai.position.set(0, 0, 28);
+moai.rotation.y = 0;
+resetAuthorPositions();
+updateCamera(1);
+setHud();
+animate();
