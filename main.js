@@ -7,6 +7,8 @@ const SPRINT_SPEED = 19;
 const AUTHOR_SPEED = 8.1;
 const SHOT_SPEED = 28;
 const SEALS_REQUIRED = 7;
+const INITIAL_AUTHOR_COUNT = 3;
+const FINAL_AUTHOR_COUNT = 7;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fc6df);
@@ -70,6 +72,7 @@ let authorFireCooldown = 1.4;
 let authorTauntTimer = 0;
 let screenShake = 0;
 let escapeOpen = false;
+let finalSwarmActive = false;
 let panicTimer = 0;
 let cameraYaw = Math.PI;
 let cameraPitch = 0.46;
@@ -77,6 +80,14 @@ let cameraDistance = 10.5;
 let pointerLookActive = false;
 let lastPointerX = 0;
 let lastPointerY = 0;
+const mobileMove = {
+  active: false,
+  pointerId: null,
+  originX: 0,
+  originY: 0,
+  x: 0,
+  z: 0,
+};
 const playerVelocity = new THREE.Vector3();
 
 const playerShots = [];
@@ -99,6 +110,7 @@ const hud = {
   down: document.getElementById('btn-down'),
   fire: document.getElementById('btn-fire'),
   fullscreen: document.getElementById('fullscreen-btn'),
+  mobileStick: document.getElementById('mobile-stick'),
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -193,12 +205,27 @@ function createAuthor() {
   author.add(ring);
 
   authors.push(author);
-  for (let i = 1; i < 3; i++) {
+  for (let i = 1; i < FINAL_AUTHOR_COUNT; i++) {
     const clone = author.clone(true);
     scene.add(clone);
     authors.push(clone);
   }
+  authors.forEach((enemy, index) => {
+    enemy.userData.ai = createAuthorBrain(index);
+  });
   resetAuthorPositions();
+}
+
+function createAuthorBrain(index) {
+  const roles = ['direct', 'leftFlank', 'rightFlank', 'ambush', 'gateCut', 'wideLeft', 'rearPush'];
+  return {
+    role: roles[index % roles.length],
+    phase: index * 1.73,
+    speedBias: THREE.MathUtils.lerp(-0.25, 0.65, (index % FINAL_AUTHOR_COUNT) / Math.max(1, FINAL_AUTHOR_COUNT - 1)),
+    prediction: 0.25 + (index % 4) * 0.18,
+    orbit: 5.5 + index * 1.15,
+    active: index < INITIAL_AUTHOR_COUNT,
+  };
 }
 
 function createWorld() {
@@ -389,20 +416,21 @@ function setHud() {
     const distance = getNearestAuthorDistance();
     const safeZone = getCurrentSafetyZone();
     const danger = safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
-    const goal = escapeOpen ? 'ゲートへ逃げ込め' : `青い封印石を${SEALS_REQUIRED}個集めろ`;
-    hud.hint.textContent = `WASD/矢印: カメラ基準移動  ドラッグ: 視点  SPACE/SHIFT/DASH: ダッシュ  最短距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
+    const goal = escapeOpen ? '作者7体！ゲートへ逃げ込め' : `青い封印石を${SEALS_REQUIRED}個集めろ`;
+    hud.hint.textContent = `左ドラッグ: 移動  右ドラッグ: 視点  DASH: ダッシュ  作者 ${getActiveAuthors().length}体  距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
   }
 }
 
 function getNearestAuthorDistance() {
-  if (!authors.length) return moai.position.distanceTo(author.position);
-  return authors.reduce((nearest, enemy) => Math.min(nearest, moai.position.distanceTo(enemy.position)), Infinity);
+  const active = getActiveAuthors();
+  if (!active.length) return moai.position.distanceTo(author.position);
+  return active.reduce((nearest, enemy) => Math.min(nearest, moai.position.distanceTo(enemy.position)), Infinity);
 }
 
 function getNearestAuthor() {
   let nearest = author;
   let nearestDistance = Infinity;
-  authors.forEach((enemy) => {
+  getActiveAuthors().forEach((enemy) => {
     const distance = moai.position.distanceTo(enemy.position);
     if (distance < nearestDistance) {
       nearestDistance = distance;
@@ -410,6 +438,10 @@ function getNearestAuthor() {
     }
   });
   return nearest;
+}
+
+function getActiveAuthors() {
+  return authors.filter((enemy) => enemy.userData.ai?.active);
 }
 
 function getCurrentSafetyZone() {
@@ -421,10 +453,17 @@ function resetAuthorPositions() {
     [0, -42],
     [-34, -28],
     [35, -18],
+    [-55, 4],
+    [52, 8],
+    [-38, 48],
+    [42, 50],
   ];
   authors.forEach((enemy, index) => {
     const [x, z] = starts[index] || [THREE.MathUtils.randFloatSpread(50), -42 - index * 6];
     enemy.position.set(x, 0, z);
+    if (!enemy.userData.ai) enemy.userData.ai = createAuthorBrain(index);
+    enemy.userData.ai.active = index < INITIAL_AUTHOR_COUNT;
+    enemy.visible = enemy.userData.ai.active;
   });
 }
 
@@ -480,8 +519,8 @@ function firePlayerShot() {
 }
 
 function movePlayer(dt) {
-  const xInput = Number(keys.right) - Number(keys.left);
-  const zInput = Number(keys.forward) - Number(keys.backward);
+  const xInput = Number(keys.right) - Number(keys.left) + mobileMove.x;
+  const zInput = Number(keys.forward) - Number(keys.backward) + mobileMove.z;
   const input = new THREE.Vector3(xInput, 0, zInput);
   const hasInput = input.lengthSq() > 0;
 
@@ -509,21 +548,26 @@ function movePlayer(dt) {
 }
 
 function updateAuthors(dt) {
-  authors.forEach((enemy, index) => updateAuthor(dt, enemy, index));
+  getActiveAuthors().forEach((enemy, index) => updateAuthor(dt, enemy, index));
 }
 
 function updateAuthor(dt, enemy = author, index = 0) {
+  if (!enemy.userData.ai?.active) return;
   const safeZone = getCurrentSafetyZone();
+  const targetPoint = getAuthorTarget(enemy, index);
+  const toTarget = targetPoint.clone().sub(enemy.position);
   const toPlayer = moai.position.clone().sub(enemy.position);
   const distance = toPlayer.length();
-  const direction = distance > 0.001 ? toPlayer.normalize() : new THREE.Vector3(0, 0, 1);
+  const direction = toTarget.lengthSq() > 0.001 ? toTarget.normalize() : new THREE.Vector3(0, 0, 1);
   const nearBoost = THREE.MathUtils.clamp((28 - distance) / 28, 0, 1);
   const sealBoost = crystals * 0.32;
-  const speed = AUTHOR_SPEED + sealBoost + nearBoost * 2.4 + index * 0.28;
-  const wobble = Math.sin(performance.now() * 0.004 + index * 2.1) * 0.28;
+  const brain = enemy.userData.ai;
+  const speed = AUTHOR_SPEED + sealBoost + nearBoost * 2.4 + brain.speedBias;
+  const wobble = Math.sin(performance.now() * 0.004 + brain.phase) * 0.34;
   let chaseDir = direction
     .clone()
     .add(new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(wobble))
+    .add(getSeparationVector(enemy).multiplyScalar(0.72))
     .normalize();
 
   if (safeZone) {
@@ -533,7 +577,7 @@ function updateAuthor(dt, enemy = author, index = 0) {
       chaseDir = fromZone.lengthSq() > 0.001 ? fromZone.normalize() : new THREE.Vector3(0, 0, -1);
       enemy.position.addScaledVector(chaseDir, (speed + 2.2) * dt);
     } else {
-      const guardPoint = safeZone.center.clone().add(direction.clone().multiplyScalar(safeZone.radius + 5.3));
+      const guardPoint = safeZone.center.clone().add(direction.clone().multiplyScalar(safeZone.radius + 5.3 + index * 0.55));
       const toGuard = guardPoint.sub(enemy.position);
       if (toGuard.lengthSq() > 0.2) {
         enemy.position.addScaledVector(toGuard.normalize(), speed * 0.45 * dt);
@@ -564,6 +608,51 @@ function updateAuthor(dt, enemy = author, index = 0) {
   }
 
   panicTimer = Math.max(panicTimer, !safeZone && distance < 12 ? 0.35 : 0);
+}
+
+function getAuthorTarget(enemy, activeIndex) {
+  const brain = enemy.userData.ai || createAuthorBrain(activeIndex);
+  const velocity = playerVelocity.lengthSq() > 0.1
+    ? playerVelocity.clone().normalize()
+    : new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+  const side = new THREE.Vector3(-velocity.z, 0, velocity.x);
+  const predicted = moai.position.clone().add(velocity.clone().multiplyScalar(brain.prediction * 8));
+  const pulse = Math.sin(performance.now() * 0.0017 + brain.phase) * 2.2;
+
+  if (brain.role === 'leftFlank') {
+    return predicted.add(side.multiplyScalar(brain.orbit + pulse));
+  }
+  if (brain.role === 'rightFlank') {
+    return predicted.add(side.multiplyScalar(-brain.orbit + pulse));
+  }
+  if (brain.role === 'ambush') {
+    return moai.position.clone().add(velocity.multiplyScalar(13 + pulse)).add(side.multiplyScalar(Math.sin(brain.phase) * 4));
+  }
+  if (brain.role === 'gateCut') {
+    const toGate = escapeGate.position.clone().sub(moai.position).setY(0);
+    const gateDir = toGate.lengthSq() > 0.1 ? toGate.normalize() : velocity;
+    return moai.position.clone().add(gateDir.multiplyScalar(12)).add(side.multiplyScalar(pulse));
+  }
+  if (brain.role === 'wideLeft') {
+    return predicted.add(side.multiplyScalar(16 + pulse)).add(velocity.clone().multiplyScalar(-4));
+  }
+  if (brain.role === 'rearPush') {
+    return moai.position.clone().add(velocity.multiplyScalar(-7)).add(side.multiplyScalar(pulse * 0.8));
+  }
+  return predicted;
+}
+
+function getSeparationVector(enemy) {
+  const repel = new THREE.Vector3();
+  getActiveAuthors().forEach((other) => {
+    if (other === enemy) return;
+    const away = enemy.position.clone().sub(other.position);
+    const distanceSq = away.lengthSq();
+    if (distanceSq > 0.001 && distanceSq < 36) {
+      repel.add(away.normalize().multiplyScalar((36 - distanceSq) / 36));
+    }
+  });
+  return repel;
 }
 
 function updateShots(dt) {
@@ -618,8 +707,9 @@ function updatePickups(dt) {
       world.remove(crystal);
       pickupCrystals.splice(i, 1);
       blip(980, 0.16, 0.1, 'triangle');
-      if (crystals >= SEALS_REQUIRED) {
+      if (crystals >= SEALS_REQUIRED && !escapeOpen) {
         escapeOpen = true;
+        activateFinalSwarm();
         blip(1240, 0.35, 0.12, 'triangle');
       }
     }
@@ -636,6 +726,25 @@ function updatePickups(dt) {
   if (escapeOpen && moai.position.distanceTo(escapeGate.position) < 4.7) {
     finishGame(true);
   }
+}
+
+function activateFinalSwarm() {
+  finalSwarmActive = true;
+  const spawnAngles = [0.1, 0.95, 1.85, 2.75, 3.65, 4.55, 5.45];
+  authors.forEach((enemy, index) => {
+    if (!enemy.userData.ai) enemy.userData.ai = createAuthorBrain(index);
+    enemy.userData.ai.active = true;
+    enemy.visible = true;
+    if (index >= INITIAL_AUTHOR_COUNT) {
+      const angle = spawnAngles[index] || (index / FINAL_AUTHOR_COUNT) * Math.PI * 2;
+      const radius = 34 + index * 1.8;
+      const x = THREE.MathUtils.clamp(moai.position.x + Math.cos(angle) * radius, -WORLD_SIZE + 6, WORLD_SIZE - 6);
+      const z = THREE.MathUtils.clamp(moai.position.z + Math.sin(angle) * radius, -WORLD_SIZE + 6, WORLD_SIZE - 6);
+      enemy.position.set(x, 0, z);
+    }
+  });
+  screenShake = 0.55;
+  playUserVoice();
 }
 
 function updateCamera(dt) {
@@ -694,6 +803,7 @@ function resetGame() {
   energy = 100;
   crystals = 0;
   escapeOpen = false;
+  finalSwarmActive = false;
   panicTimer = 0;
   fireCooldown = 0;
   authorFireCooldown = 1.0;
@@ -703,6 +813,7 @@ function resetGame() {
   cameraPitch = 0.46;
   cameraDistance = 10.5;
   playerVelocity.set(0, 0, 0);
+  stopMobileMove();
 
   playerShots.splice(0).forEach((shot) => scene.remove(shot));
   authorShots.splice(0).forEach((shot) => scene.remove(shot));
@@ -765,15 +876,66 @@ window.addEventListener('keyup', (event) => {
   bindKey(event.code, false);
 });
 
+function isTouchUiTarget(event) {
+  return Boolean(event.target.closest?.('#controls, #fullscreen-btn, #start-screen, #name-input-overlay, button'));
+}
+
+function updateMobileStickVisual(clientX, clientY) {
+  if (!hud.mobileStick) return;
+  const dx = mobileMove.x * 30;
+  const dy = -mobileMove.z * 30;
+  hud.mobileStick.style.display = mobileMove.active ? 'block' : 'none';
+  hud.mobileStick.style.left = `${mobileMove.originX}px`;
+  hud.mobileStick.style.top = `${mobileMove.originY}px`;
+  hud.mobileStick.style.setProperty('--stick-x', `${dx}px`);
+  hud.mobileStick.style.setProperty('--stick-y', `${dy}px`);
+}
+
+function stopMobileMove() {
+  mobileMove.active = false;
+  mobileMove.pointerId = null;
+  mobileMove.x = 0;
+  mobileMove.z = 0;
+  if (hud.mobileStick) hud.mobileStick.style.display = 'none';
+}
+
 renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (isTouchUiTarget(event) || !gameStarted || gameOver) return;
+  event.preventDefault();
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+
+  if (event.clientX < window.innerWidth * 0.48 && !mobileMove.active) {
+    mobileMove.active = true;
+    mobileMove.pointerId = event.pointerId;
+    mobileMove.originX = event.clientX;
+    mobileMove.originY = event.clientY;
+    updateMobileStickVisual(event.clientX, event.clientY);
+    return;
+  }
+
   pointerLookActive = true;
   lastPointerX = event.clientX;
   lastPointerY = event.clientY;
-  renderer.domElement.setPointerCapture?.(event.pointerId);
 });
 
 renderer.domElement.addEventListener('pointermove', (event) => {
+  if (mobileMove.active && event.pointerId === mobileMove.pointerId) {
+    event.preventDefault();
+    const dx = THREE.MathUtils.clamp(event.clientX - mobileMove.originX, -52, 52);
+    const dy = THREE.MathUtils.clamp(event.clientY - mobileMove.originY, -52, 52);
+    mobileMove.x = Math.abs(dx) < 6 ? 0 : dx / 52;
+    mobileMove.z = Math.abs(dy) < 6 ? 0 : -dy / 52;
+    const len = Math.hypot(mobileMove.x, mobileMove.z);
+    if (len > 1) {
+      mobileMove.x /= len;
+      mobileMove.z /= len;
+    }
+    updateMobileStickVisual(event.clientX, event.clientY);
+    return;
+  }
+
   if (!pointerLookActive) return;
+  event.preventDefault();
   const dx = event.clientX - lastPointerX;
   const dy = event.clientY - lastPointerY;
   lastPointerX = event.clientX;
@@ -783,11 +945,13 @@ renderer.domElement.addEventListener('pointermove', (event) => {
 });
 
 renderer.domElement.addEventListener('pointerup', (event) => {
+  if (event.pointerId === mobileMove.pointerId) stopMobileMove();
   pointerLookActive = false;
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 });
 
-renderer.domElement.addEventListener('pointercancel', () => {
+renderer.domElement.addEventListener('pointercancel', (event) => {
+  if (event.pointerId === mobileMove.pointerId) stopMobileMove();
   pointerLookActive = false;
 });
 

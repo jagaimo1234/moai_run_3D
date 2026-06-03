@@ -166,6 +166,35 @@
             z-index: 20;
         }
 
+        #mobile-stick {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.18);
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 18;
+            pointer-events: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        #mobile-stick::after {
+            content: "";
+            position: absolute;
+            left: calc(50% + var(--stick-x, 0px));
+            top: calc(50% + var(--stick-y, 0px));
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(119,244,255,0.72);
+            border: 2px solid rgba(255,255,255,0.7);
+            transform: translate(-50%, -50%);
+        }
+
         #start-screen {
             position: absolute;
             top: 0;
@@ -418,6 +447,11 @@
                 height: 76px;
                 font-size: 13px;
             }
+            #ui-text {
+                font-size: 11px;
+                max-width: calc(100vw - 118px);
+                padding: 8px 10px;
+            }
         }
 
         .retro-btn {
@@ -554,7 +588,7 @@
             ">
                 <h1 style="font-size: clamp(26px, 8vw, 42px); margin: 0 0 8px;">MOAI ROBO OPEN WORLD</h1>
                 <div style="font-size: clamp(13px, 3.7vw, 17px); font-weight: 700; line-height: 1.45;">
-                    緑の安全地帯で息を整えながら、青い封印石を集めて脱出しろ
+                    最後の封印石で作者が7体に増える。安全地帯を使って脱出しろ
                 </div>
             </div>
 
@@ -571,7 +605,7 @@
                 font-family: 'Outfit', sans-serif; font-size: clamp(12px, 3.5vw, 16px); font-weight: bold;
                 color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,0.8), 0 0 3px #000;
                 z-index: 101; letter-spacing: 0.5px;
-            ">WASD/矢印: 移動　ドラッグ: 視点　SPACE/SHIFT: ダッシュ</p>
+            ">スマホ: 左ドラッグで移動 / 右ドラッグで視点 / DASHで走る</p>
 
             <!-- Global High Score Display -->
             <div id="global-best-container" style="
@@ -612,6 +646,7 @@
     </div>
 
     <div id="fullscreen-btn">FULLSCREEN</div>
+    <div id="mobile-stick" aria-hidden="true"></div>
 
     <div id="controls">
         <div class="move-pad">
@@ -783,7 +818,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260604_speed_authors_safezone"></script>
+    <script type="module" src="./main.js?v=20260604_mobile_controls"></script>
 </body>
 
 </html>
