@@ -139,16 +139,8 @@ const teleportRings = [];
 const obstacleColliders = [];
 
 const hud = {
-  current: document.getElementById('current-score-val'),
-  today: document.getElementById('today-best-val'),
-  label: document.querySelector('.score-label'),
-  bestLabel: document.querySelector('.best-label'),
   hint: document.getElementById('ui-text'),
   start: document.getElementById('start-screen'),
-  left: document.getElementById('btn-left'),
-  right: document.getElementById('btn-right'),
-  up: document.getElementById('btn-up'),
-  down: document.getElementById('btn-down'),
   fire: document.getElementById('btn-fire'),
   mobileStick: document.getElementById('mobile-stick'),
 };
@@ -159,8 +151,25 @@ let bgmTimer = null;
 let bgmStep = 0;
 let bgmRunning = false;
 let bgmGain = null;
-const bgmBass = [55, 55, 65.41, 55, 73.42, 65.41, 49, 55];
-const bgmLead = [220, 0, 246.94, 0, 261.63, 0, 196, 0, 174.61, 0, 196, 0, 246.94, 0, 220, 0];
+let bgmMode = 'menu';
+const bgmThemes = [
+  {
+    bass: [55, 55, 65.41, 55, 73.42, 65.41, 49, 55],
+    lead: [220, 0, 246.94, 0, 261.63, 0, 196, 0, 174.61, 0, 196, 0, 246.94, 0, 220, 0],
+    harmony: [110, 130.81, 146.83, 130.81, 98, 110, 123.47, 110],
+    drumEvery: 4,
+    baseInterval: 224,
+    leadType: 'triangle',
+  },
+  {
+    bass: [41.2, 41.2, 49, 43.65, 55, 49, 36.71, 41.2],
+    lead: [164.81, 0, 174.61, 0, 196, 0, 146.83, 0, 130.81, 0, 146.83, 0, 174.61, 0, 164.81, 0],
+    harmony: [82.41, 98, 110, 98, 73.42, 82.41, 92.5, 82.41],
+    drumEvery: 3,
+    baseInterval: 238,
+    leadType: 'sawtooth',
+  },
+];
 
 fetch('./uservoice.m4a')
   .then((res) => res.arrayBuffer())
@@ -764,11 +773,7 @@ function addCrystal(x, z) {
 }
 
 function setHud() {
-  if (hud.label) hud.label.textContent = 'SEALS';
-  if (hud.bestLabel) hud.bestLabel.textContent = 'STAMINA';
   const required = getSealsRequired();
-  if (hud.current) hud.current.textContent = `${Math.min(crystals, required)}/${required}`;
-  if (hud.today) hud.today.textContent = String(Math.max(0, Math.round(energy)));
   if (hud.hint) {
     const distance = getNearestAuthorDistance();
     const safeZone = getCurrentSafetyZone();
@@ -840,12 +845,7 @@ function resetAuthorPositions() {
 }
 
 function playUserVoice() {
-  if (!userVoiceBuffer) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const source = audioCtx.createBufferSource();
-  source.buffer = userVoiceBuffer;
-  source.connect(audioCtx.destination);
-  source.start(0);
+  return;
 }
 
 function blip(frequency, duration = 0.08, volume = 0.08, type = 'square') {
@@ -878,7 +878,30 @@ function playBgmTone(frequency, duration, volume, type = 'square', detune = 0) {
   osc.stop(audioCtx.currentTime + duration + 0.02);
 }
 
-function startBgm() {
+function playBgmNoise(duration, volume, tone = 900) {
+  if (!bgmGain) return;
+  const length = Math.max(1, Math.floor(audioCtx.sampleRate * duration));
+  const buffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.2);
+  }
+  const source = audioCtx.createBufferSource();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+  filter.type = 'highpass';
+  filter.frequency.value = tone;
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  source.buffer = buffer;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(bgmGain);
+  source.start(audioCtx.currentTime);
+}
+
+function startBgm(mode = 'game') {
+  bgmMode = mode;
   if (bgmRunning) return;
   if (audioCtx.state === 'suspended') audioCtx.resume();
   bgmRunning = true;
@@ -906,27 +929,53 @@ function stopBgm() {
 function scheduleBgmStep() {
   if (!bgmRunning) return;
   const distance = getNearestAuthorDistance();
-  const danger = THREE.MathUtils.clamp((34 - distance) / 34, 0, 1);
-  const swarm = finalSwarmActive ? 1 : 0;
-  const interval = Math.max(105, 230 - danger * 68 - swarm * 54);
-  const master = 0.075 + danger * 0.065 + swarm * 0.04;
+  const menu = bgmMode === 'menu';
+  const danger = menu ? 0 : THREE.MathUtils.clamp((34 - distance) / 34, 0, 1);
+  const swarm = !menu && finalSwarmActive ? 1 : 0;
+  const theme = menu ? bgmThemes[0] : (bgmThemes[currentStage - 1] || bgmThemes[0]);
+  const interval = menu ? 310 : Math.max(96, theme.baseInterval - danger * 64 - swarm * 52 - teleportAlertTimer * 5);
+  const master = menu ? 0.055 : 0.085 + danger * 0.07 + swarm * 0.045 + (currentStage === 2 ? 0.018 : 0);
 
   if (bgmGain) {
     bgmGain.gain.setTargetAtTime(master, audioCtx.currentTime, 0.08);
   }
 
-  const bass = bgmBass[bgmStep % bgmBass.length];
-  const lead = bgmLead[bgmStep % bgmLead.length];
-  playBgmTone(bass, 0.18, 0.22, 'sawtooth', -8);
+  const bass = theme.bass[bgmStep % theme.bass.length];
+  const lead = theme.lead[bgmStep % theme.lead.length];
+  const harmony = theme.harmony[bgmStep % theme.harmony.length];
+  if (menu) {
+    playBgmTone(harmony, 0.34, 0.04, 'triangle', -6);
+    if (bgmStep % 2 === 0) playBgmTone(bass * 2, 0.18, 0.035, 'sine');
+    if (lead && bgmStep % 4 === 1) playBgmTone(lead, 0.11, 0.032, 'triangle');
+    bgmStep++;
+    bgmTimer = setTimeout(scheduleBgmStep, interval);
+    return;
+  }
+
+  playBgmTone(bass, 0.18, 0.2, currentStage === 2 ? 'square' : 'sawtooth', -8);
 
   if (bgmStep % 2 === 0) {
-    playBgmTone(bass * 2, 0.055, 0.07 + danger * 0.03, 'square', 5);
+    playBgmTone(bass * 2, 0.055, 0.055 + danger * 0.03, 'square', 5);
+  }
+  if (bgmStep % 4 === 0) {
+    playBgmTone(harmony, 0.24, 0.055, currentStage === 2 ? 'triangle' : 'square', -4);
   }
   if ((danger > 0.35 || swarm) && lead) {
-    playBgmTone(lead * (swarm ? 1.5 : 1), 0.075, 0.06, 'triangle');
+    playBgmTone(lead * (swarm ? 1.5 : 1), 0.09, 0.068, theme.leadType);
+  } else if (lead && bgmStep % 3 === 0) {
+    playBgmTone(lead, 0.08, 0.048, theme.leadType);
+  }
+  if (bgmStep % theme.drumEvery === 0) {
+    playBgmTone(currentStage === 2 ? 58 : 72, 0.07, 0.16, 'sine', -18);
+  }
+  if (bgmStep % 2 === 1) {
+    playBgmNoise(0.035, currentStage === 2 ? 0.028 : 0.022, currentStage === 2 ? 1500 : 2300);
   }
   if (swarm && bgmStep % 4 === 1) {
     playBgmTone(880, 0.045, 0.05, 'square', 12);
+  }
+  if (teleportAlertTimer > 0 && bgmStep % 3 === 2) {
+    playBgmTone(1046.5, 0.05, 0.045, 'square', 20);
   }
 
   bgmStep++;
@@ -1280,7 +1329,6 @@ function finishGame(won) {
   gameOver = true;
   victory = won;
   stopBgm();
-  if (window.logScore) window.logScore(Math.round(won ? 1400 + energy * 3 + totalSeals * 95 : totalSeals * 80));
   const title = won ? `${getStageConfig().name} 脱出成功！` : '作者につかまった';
   const body = won
     ? 'ゲートから逃げ切った。好きなステージを選んでもう一度挑戦。'
@@ -1302,6 +1350,7 @@ function finishGame(won) {
       </div>
     </div>
   `;
+  startBgm('menu');
 }
 
 function resetGame(stage = 1) {
@@ -1340,9 +1389,8 @@ function resetGame(stage = 1) {
   resetAuthorPositions();
 
   if (hud.start) hud.start.style.display = 'none';
-  if (window.logPlayerStart) window.logPlayerStart();
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  startBgm();
+  startBgm('game');
 }
 
 function animate() {
@@ -1398,7 +1446,7 @@ window.addEventListener('keyup', (event) => {
 });
 
 function isTouchUiTarget(event) {
-  return Boolean(event.target.closest?.('#controls, #start-screen, #name-input-overlay, button'));
+  return Boolean(event.target.closest?.('#controls, #start-screen, button'));
 }
 
 function updateMobileStickVisual(clientX, clientY) {
@@ -1494,13 +1542,15 @@ function setupTouchButton(button, keyName) {
   button.addEventListener('mouseleave', end);
 }
 
-setupTouchButton(hud.left, 'left');
-setupTouchButton(hud.right, 'right');
-setupTouchButton(hud.up, 'forward');
-setupTouchButton(hud.down, 'backward');
 setupTouchButton(hud.fire, 'fire');
 
 if (hud.start) {
+  hud.start.addEventListener('pointerdown', () => {
+    if (gameStarted && !gameOver) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    startBgm('menu');
+  }, { passive: true });
+
   hud.start.addEventListener('click', (event) => {
     const stageButton = event.target.closest?.('[data-stage]');
     if (!stageButton) return;
