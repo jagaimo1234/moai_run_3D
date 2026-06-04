@@ -9,6 +9,40 @@ const SHOT_SPEED = 28;
 const SEALS_REQUIRED = 7;
 const INITIAL_AUTHOR_COUNT = 3;
 const FINAL_AUTHOR_COUNT = 7;
+const STAGES = [
+  {
+    name: 'STAGE 1: OPEN WORLD',
+    mission: '青い封印石を集めろ',
+    seals: 7,
+    start: [0, 0, 28],
+    gate: [0, 0, 58],
+    initialAuthors: 3,
+    authorBoost: 0,
+    sky: 0x7fc6df,
+    fogNear: 34,
+    fogFar: 105,
+    ground: 0x5ea760,
+    grid: 0xd4f7b1,
+    grid2: 0x7fbf72,
+    road: 0xcabf94,
+  },
+  {
+    name: 'STAGE 2: NIGHT RUINS',
+    mission: '夜の遺跡から脱出しろ',
+    seals: 6,
+    start: [0, 0, -54],
+    gate: [0, 0, 60],
+    initialAuthors: 5,
+    authorBoost: 1.75,
+    sky: 0x141a2a,
+    fogNear: 20,
+    fogFar: 82,
+    ground: 0x273b34,
+    grid: 0x6fffd8,
+    grid2: 0x314b49,
+    road: 0x58525e,
+  },
+];
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fc6df);
@@ -67,6 +101,8 @@ let playerHealth = 100;
 let authorHealth = 140;
 let energy = 100;
 let crystals = 0;
+let totalSeals = 0;
+let currentStage = 1;
 let fireCooldown = 0;
 let authorFireCooldown = 1.4;
 let authorTauntTimer = 0;
@@ -74,6 +110,9 @@ let screenShake = 0;
 let escapeOpen = false;
 let finalSwarmActive = false;
 let panicTimer = 0;
+let stageTransitionTimer = 0;
+let teleportCooldown = 0;
+let teleportAlertTimer = 0;
 let cameraYaw = Math.PI;
 let cameraPitch = 0.46;
 let cameraDistance = 10.5;
@@ -96,6 +135,8 @@ const pickupCrystals = [];
 const props = [];
 const authors = [];
 const safetyZones = [];
+const teleportRings = [];
+const obstacleColliders = [];
 
 const hud = {
   current: document.getElementById('current-score-val'),
@@ -233,22 +274,41 @@ function createAuthorBrain(index) {
   };
 }
 
+function getStageConfig() {
+  return STAGES[currentStage - 1] || STAGES[0];
+}
+
+function getSealsRequired() {
+  return getStageConfig().seals;
+}
+
 function createWorld() {
+  const config = getStageConfig();
+  while (world.children.length) world.remove(world.children[0]);
+  while (escapeGate.children.length) escapeGate.remove(escapeGate.children[0]);
+  props.length = 0;
+  safetyZones.length = 0;
+  pickupCrystals.length = 0;
+  teleportRings.length = 0;
+  obstacleColliders.length = 0;
+  scene.background = new THREE.Color(config.sky);
+  scene.fog = new THREE.Fog(config.sky, config.fogNear, config.fogFar);
+
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(170, 170, 60, 60),
-    new THREE.MeshStandardMaterial({ color: 0x5ea760, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({ color: config.ground, roughness: 0.95 })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   world.add(ground);
 
-  const grid = new THREE.GridHelper(160, 40, 0xd4f7b1, 0x7fbf72);
+  const grid = new THREE.GridHelper(160, 40, config.grid, config.grid2);
   grid.position.y = 0.02;
-  grid.material.opacity = 0.18;
+  grid.material.opacity = currentStage === 2 ? 0.24 : 0.18;
   grid.material.transparent = true;
   world.add(grid);
 
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0xcabf94, roughness: 0.9 });
+  const roadMat = new THREE.MeshStandardMaterial({ color: config.road, roughness: 0.9 });
   const roadA = new THREE.Mesh(new THREE.BoxGeometry(8, 0.04, 150), roadMat);
   roadA.receiveShadow = true;
   world.add(roadA);
@@ -256,23 +316,49 @@ function createWorld() {
   roadB.receiveShadow = true;
   world.add(roadB);
 
-  addLandmark(-24, -18, 0x50b6df, 'atelier');
-  addLandmark(25, 18, 0xf0b84d, 'forge');
-  addLandmark(-28, 25, 0x96d56a, 'garden');
-  addLandmark(24, -26, 0xdf6d63, 'arena');
-  addSafetyZone(-24, -18, 7.4);
-  addSafetyZone(25, 18, 7.4);
-  addSafetyZone(-28, 25, 7.4);
+  if (currentStage === 1) {
+    addLandmark(-24, -18, 0x50b6df, 'atelier');
+    addLandmark(25, 18, 0xf0b84d, 'forge');
+    addLandmark(-28, 25, 0x96d56a, 'garden');
+    addLandmark(24, -26, 0xdf6d63, 'arena');
+    addSafetyZone(-24, -18, 7.4);
+    addSafetyZone(25, 18, 7.4);
+    addSafetyZone(-28, 25, 7.4);
+  } else {
+    addNightSkyDetails();
+    addLandmark(-32, -28, 0x6be7ff, 'moon-tower');
+    addLandmark(34, -12, 0xa878ff, 'ruin-core');
+    addLandmark(-18, 26, 0xff5f7e, 'red-altar');
+    addSafetyZone(-32, -28, 6.2);
+    addSafetyZone(34, -12, 5.8);
+    addRuinWall(-18, -4, 24, 3.2);
+    addRuinWall(18, 14, 24, 3.2);
+    addRuinWall(-42, 18, 4, 25);
+    addRuinWall(43, -22, 4, 28);
+    addRuinWall(0, 36, 36, 3.2);
+    addAncientRunes();
+    addMistColumns();
+  }
   createEscapeGate();
 
-  for (let i = 0; i < 95; i++) {
+  const propCount = currentStage === 2 ? 30 : 95;
+  for (let i = 0; i < propCount; i++) {
     const x = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
     const z = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
     if (Math.abs(x) < 6 || Math.abs(z) < 6) continue;
     const height = THREE.MathUtils.randFloat(1.6, 6.5);
+    const bottomRadius = THREE.MathUtils.randFloat(0.55, 1.25);
+    const topRadius = THREE.MathUtils.randFloat(0.45, 1.1);
     const rock = new THREE.Mesh(
-      new THREE.CylinderGeometry(THREE.MathUtils.randFloat(0.45, 1.1), THREE.MathUtils.randFloat(0.55, 1.25), height, 6),
-      new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.08, 0.25, THREE.MathUtils.randFloat(0.45, 0.62)), roughness: 0.88 })
+      new THREE.CylinderGeometry(topRadius, bottomRadius, height, 6),
+      new THREE.MeshStandardMaterial({
+        color: currentStage === 2
+          ? new THREE.Color().setHSL(0.58, 0.22, THREE.MathUtils.randFloat(0.22, 0.38))
+          : new THREE.Color().setHSL(0.08, 0.25, THREE.MathUtils.randFloat(0.45, 0.62)),
+        roughness: 0.88,
+        emissive: currentStage === 2 ? 0x030a10 : 0x000000,
+        emissiveIntensity: currentStage === 2 ? 0.28 : 0,
+      })
     );
     rock.position.set(x, height / 2, z);
     rock.rotation.y = Math.random() * Math.PI;
@@ -280,12 +366,276 @@ function createWorld() {
     rock.receiveShadow = true;
     world.add(rock);
     props.push(rock);
+    addCircleCollider(x, z, Math.max(topRadius, bottomRadius) + (currentStage === 2 ? 0.35 : 0.55));
   }
 
-  for (let i = 0; i < SEALS_REQUIRED; i++) {
-    const angle = (i / SEALS_REQUIRED) * Math.PI * 2;
-    const radius = 18 + Math.sin(i * 1.7) * 14;
-    addCrystal(Math.cos(angle) * radius, Math.sin(angle) * radius);
+  placeStageCrystals();
+}
+
+function addNightSkyDetails() {
+  const moon = new THREE.Mesh(
+    new THREE.SphereGeometry(7.5, 32, 18),
+    new THREE.MeshBasicMaterial({ color: 0xd9ecff })
+  );
+  moon.position.set(-58, 42, -70);
+  moon.userData.slowSpin = 0.02;
+  world.add(moon);
+  props.push(moon);
+
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(8.4, 12.5, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0x8ad7ff,
+      transparent: true,
+      opacity: 0.18,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  halo.position.copy(moon.position);
+  halo.lookAt(camera.position);
+  halo.userData.faceCamera = true;
+  world.add(halo);
+  props.push(halo);
+
+  const moonLight = new THREE.PointLight(0x8fd8ff, 2.7, 120, 1.6);
+  moonLight.position.set(-38, 22, -42);
+  world.add(moonLight);
+}
+
+function addAncientRunes() {
+  const runeColors = [0x61f6ff, 0xb184ff, 0xff5f7e, 0x9dffbf];
+  for (let i = 0; i < 18; i++) {
+    const angle = (i / 18) * Math.PI * 2;
+    const radius = 11 + (i % 3) * 10;
+    const x = Math.cos(angle) * radius + Math.sin(i * 1.9) * 7;
+    const z = Math.sin(angle) * radius + Math.cos(i * 1.3) * 5;
+    const color = runeColors[i % runeColors.length];
+    const rune = new THREE.Mesh(
+      new THREE.RingGeometry(0.62 + (i % 2) * 0.25, 0.82 + (i % 2) * 0.25, 6),
+      new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 1.1,
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.25,
+        side: THREE.DoubleSide,
+      })
+    );
+    rune.rotation.x = -Math.PI / 2;
+    rune.rotation.z = angle;
+    rune.position.set(x, 0.13, z);
+    rune.userData.pulse = 0.7 + i * 0.19;
+    world.add(rune);
+    props.push(rune);
+  }
+
+  addTeleportRing(0, 12, 0x61f6ff, 1);
+  addTeleportRing(-46, -36, 0xb184ff, 2);
+  addTeleportRing(46, 34, 0xff5f7e, 0);
+}
+
+function addTeleportRing(x, z, color, targetIndex) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+  group.userData.teleportRing = true;
+  group.userData.pulse = targetIndex * 0.75 + 0.2;
+  group.userData.targetIndex = targetIndex;
+  world.add(group);
+  props.push(group);
+  teleportRings.push(group);
+
+  const baseMat = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 1.3,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.2,
+    side: THREE.DoubleSide,
+  });
+
+  const outer = new THREE.Mesh(new THREE.TorusGeometry(6.2, 0.12, 10, 96), baseMat);
+  outer.rotation.x = Math.PI / 2;
+  outer.position.y = 0.18;
+  outer.userData.pulse = group.userData.pulse;
+  group.add(outer);
+
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.08, 8, 72), baseMat.clone());
+  inner.rotation.x = Math.PI / 2;
+  inner.position.y = 0.2;
+  inner.userData.pulse = group.userData.pulse + 0.4;
+  group.add(inner);
+
+  const pad = new THREE.Mesh(
+    new THREE.CircleGeometry(5.8, 64),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  pad.rotation.x = -Math.PI / 2;
+  pad.position.y = 0.12;
+  pad.userData.pulse = group.userData.pulse + 0.8;
+  group.add(pad);
+
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.2, 4.8, 14, 32, 1, true),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  beam.position.y = 7;
+  beam.userData.pulse = group.userData.pulse + 1.1;
+  group.add(beam);
+}
+
+function addMistColumns() {
+  const columns = [
+    [-48, -44, 0x61f6ff],
+    [46, -38, 0xb184ff],
+    [-52, 42, 0xff5f7e],
+    [50, 38, 0x9dffbf],
+    [0, 12, 0x61f6ff],
+  ];
+  columns.forEach(([x, z, color], index) => {
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 2.4, 22, 24, 1, true),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.13,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    beam.position.set(x, 11, z);
+    beam.userData.pulse = index * 0.8;
+    world.add(beam);
+    props.push(beam);
+
+    const light = new THREE.PointLight(color, 1.1, 34, 2);
+    light.position.set(x, 4, z);
+    world.add(light);
+  });
+}
+
+function addRuinWall(x, z, width, depth) {
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 5.2, depth),
+    new THREE.MeshStandardMaterial({
+      color: 0x202734,
+      emissive: 0x061320,
+      emissiveIntensity: 0.35,
+      roughness: 0.82,
+    })
+  );
+  wall.position.set(x, 2.6, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  world.add(wall);
+  props.push(wall);
+  addBoxCollider(x, z, width + 0.35, depth + 0.35);
+
+  if (currentStage === 2) {
+    const lineCount = Math.max(2, Math.floor(Math.max(width, depth) / 7));
+    for (let i = 0; i < lineCount; i++) {
+      const groove = new THREE.Mesh(
+        new THREE.BoxGeometry(width > depth ? 2.4 : 0.08, 0.08, width > depth ? 0.08 : 2.4),
+        new THREE.MeshStandardMaterial({
+          color: 0x61f6ff,
+          emissive: 0x22d8ff,
+          emissiveIntensity: 1.05,
+          roughness: 0.2,
+        })
+      );
+      const offset = (i - (lineCount - 1) / 2) * 5.5;
+      groove.position.set(x + (width > depth ? offset : 0), 5.28, z + (width > depth ? 0 : offset));
+      groove.userData.pulse = i * 0.37;
+      world.add(groove);
+      props.push(groove);
+    }
+  }
+}
+
+function addCircleCollider(x, z, radius) {
+  obstacleColliders.push({ type: 'circle', x, z, radius });
+}
+
+function addBoxCollider(x, z, width, depth) {
+  obstacleColliders.push({
+    type: 'box',
+    x,
+    z,
+    halfWidth: width / 2,
+    halfDepth: depth / 2,
+  });
+}
+
+function resolveObstacleCollisions(entity, radius, onHit) {
+  obstacleColliders.forEach((collider) => {
+    if (collider.type === 'circle') {
+      const dx = entity.position.x - collider.x;
+      const dz = entity.position.z - collider.z;
+      const minDistance = collider.radius + radius;
+      const distanceSq = dx * dx + dz * dz;
+      if (distanceSq <= 0.0001 || distanceSq >= minDistance * minDistance) return;
+      const distance = Math.sqrt(distanceSq);
+      const push = minDistance - distance;
+      entity.position.x += (dx / distance) * push;
+      entity.position.z += (dz / distance) * push;
+      onHit?.();
+      return;
+    }
+
+    const closestX = THREE.MathUtils.clamp(entity.position.x, collider.x - collider.halfWidth, collider.x + collider.halfWidth);
+    const closestZ = THREE.MathUtils.clamp(entity.position.z, collider.z - collider.halfDepth, collider.z + collider.halfDepth);
+    const dx = entity.position.x - closestX;
+    const dz = entity.position.z - closestZ;
+    const distanceSq = dx * dx + dz * dz;
+    if (distanceSq >= radius * radius) return;
+
+    if (distanceSq > 0.0001) {
+      const distance = Math.sqrt(distanceSq);
+      const push = radius - distance;
+      entity.position.x += (dx / distance) * push;
+      entity.position.z += (dz / distance) * push;
+    } else {
+      const left = Math.abs(entity.position.x - (collider.x - collider.halfWidth));
+      const right = Math.abs((collider.x + collider.halfWidth) - entity.position.x);
+      const bottom = Math.abs(entity.position.z - (collider.z - collider.halfDepth));
+      const top = Math.abs((collider.z + collider.halfDepth) - entity.position.z);
+      const minSide = Math.min(left, right, bottom, top);
+      if (minSide === left) entity.position.x = collider.x - collider.halfWidth - radius;
+      else if (minSide === right) entity.position.x = collider.x + collider.halfWidth + radius;
+      else if (minSide === bottom) entity.position.z = collider.z - collider.halfDepth - radius;
+      else entity.position.z = collider.z + collider.halfDepth + radius;
+    }
+    onHit?.();
+  });
+}
+
+function resolvePlayerObstacleCollisions() {
+  if (getCurrentSafetyZone()) return;
+  resolveObstacleCollisions(moai, 0.82, () => playerVelocity.multiplyScalar(0.42));
+}
+
+function placeStageCrystals() {
+  const required = getSealsRequired();
+  for (let i = 0; i < required; i++) {
+    const angle = (i / required) * Math.PI * 2 + (currentStage === 2 ? 0.45 : 0);
+    const radius = currentStage === 2 ? 24 + Math.sin(i * 2.1) * 16 : 18 + Math.sin(i * 1.7) * 14;
+    const x = Math.cos(angle) * radius + (currentStage === 2 ? Math.sin(i * 1.4) * 9 : 0);
+    const z = Math.sin(angle) * radius + (currentStage === 2 ? 2 : 0);
+    addCrystal(x, z);
   }
 }
 
@@ -328,7 +678,7 @@ function addSafetyZone(x, z, radius) {
 }
 
 function createEscapeGate() {
-  escapeGate.position.set(0, 0, 58);
+  escapeGate.position.fromArray(getStageConfig().gate);
 
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x323d42, roughness: 0.78, metalness: 0.12 });
   const glowMat = new THREE.MeshStandardMaterial({
@@ -376,6 +726,7 @@ function addLandmark(x, z, color, type) {
   base.receiveShadow = true;
   base.castShadow = true;
   group.add(base);
+  addCircleCollider(x, z, currentStage === 2 ? 3.95 : 4.35);
 
   const spire = new THREE.Mesh(
     new THREE.ConeGeometry(1.25, 4.2, 8),
@@ -415,14 +766,19 @@ function addCrystal(x, z) {
 function setHud() {
   if (hud.label) hud.label.textContent = 'SEALS';
   if (hud.bestLabel) hud.bestLabel.textContent = 'STAMINA';
-  if (hud.current) hud.current.textContent = `${Math.min(crystals, SEALS_REQUIRED)}/${SEALS_REQUIRED}`;
+  const required = getSealsRequired();
+  if (hud.current) hud.current.textContent = `${Math.min(crystals, required)}/${required}`;
   if (hud.today) hud.today.textContent = String(Math.max(0, Math.round(energy)));
   if (hud.hint) {
     const distance = getNearestAuthorDistance();
     const safeZone = getCurrentSafetyZone();
+    const config = getStageConfig();
+    const stageCall = stageTransitionTimer > 0 ? `${config.name} ` : '';
     const danger = safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
-    const goal = escapeOpen ? '作者7体！ゲートへ逃げ込め' : `青い封印石を${SEALS_REQUIRED}個集めろ`;
-    hud.hint.textContent = `左ドラッグ: 移動  右ドラッグ: 視点  DASH: ダッシュ  作者 ${getActiveAuthors().length}体  距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
+    const alertHint = teleportAlertTimer > 0 ? '  ワープ音で作者が警戒中' : '';
+    const ringHint = currentStage === 2 ? `  光リング: ワープ${alertHint}` : '';
+    const goal = escapeOpen ? '作者7体！ゲートへ逃げ込め' : `${config.mission}: ${required}個${ringHint}`;
+    hud.hint.textContent = `${stageCall}左ドラッグ: 移動  右ドラッグ: 視点  DASH: ダッシュ  作者 ${getActiveAuthors().length}体  距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
   }
 }
 
@@ -454,20 +810,31 @@ function getCurrentSafetyZone() {
 }
 
 function resetAuthorPositions() {
-  const starts = [
-    [0, -42],
-    [-34, -28],
-    [35, -18],
-    [-55, 4],
-    [52, 8],
-    [-38, 48],
-    [42, 50],
-  ];
+  const starts = currentStage === 2
+    ? [
+      [-36, 8],
+      [36, -2],
+      [-18, 42],
+      [22, 38],
+      [-52, -18],
+      [50, -34],
+      [0, 48],
+    ]
+    : [
+      [0, -42],
+      [-34, -28],
+      [35, -18],
+      [-55, 4],
+      [52, 8],
+      [-38, 48],
+      [42, 50],
+    ];
+  const activeCount = getStageConfig().initialAuthors;
   authors.forEach((enemy, index) => {
     const [x, z] = starts[index] || [THREE.MathUtils.randFloatSpread(50), -42 - index * 6];
     enemy.position.set(x, 0, z);
     if (!enemy.userData.ai) enemy.userData.ai = createAuthorBrain(index);
-    enemy.userData.ai.active = index < INITIAL_AUTHOR_COUNT;
+    enemy.userData.ai.active = index < activeCount;
     enemy.visible = enemy.userData.ai.active;
   });
 }
@@ -621,6 +988,9 @@ function movePlayer(dt) {
 
   moai.position.x = THREE.MathUtils.clamp(moai.position.x, -WORLD_SIZE, WORLD_SIZE);
   moai.position.z = THREE.MathUtils.clamp(moai.position.z, -WORLD_SIZE, WORLD_SIZE);
+  resolvePlayerObstacleCollisions();
+  moai.position.x = THREE.MathUtils.clamp(moai.position.x, -WORLD_SIZE, WORLD_SIZE);
+  moai.position.z = THREE.MathUtils.clamp(moai.position.z, -WORLD_SIZE, WORLD_SIZE);
 }
 
 function updateAuthors(dt) {
@@ -637,8 +1007,9 @@ function updateAuthor(dt, enemy = author, index = 0) {
   const direction = toTarget.lengthSq() > 0.001 ? toTarget.normalize() : new THREE.Vector3(0, 0, 1);
   const nearBoost = THREE.MathUtils.clamp((28 - distance) / 28, 0, 1);
   const sealBoost = crystals * 0.32;
+  const teleportAlertBoost = currentStage === 2 ? teleportAlertTimer * 0.58 : 0;
   const brain = enemy.userData.ai;
-  const speed = AUTHOR_SPEED + sealBoost + nearBoost * 2.4 + brain.speedBias;
+  const speed = AUTHOR_SPEED + getStageConfig().authorBoost + sealBoost + nearBoost * 2.4 + teleportAlertBoost + brain.speedBias;
   const wobble = Math.sin(performance.now() * 0.004 + brain.phase) * 0.34;
   let chaseDir = direction
     .clone()
@@ -670,6 +1041,9 @@ function updateAuthor(dt, enemy = author, index = 0) {
     return;
   }
 
+  enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
+  enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
+  resolveObstacleCollisions(enemy, 1.05);
   enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
   enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
   enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
@@ -778,12 +1152,13 @@ function updatePickups(dt) {
     crystal.position.y = crystal.userData.baseY + Math.sin(performance.now() * 0.003 + i) * 0.18;
     if (crystal.position.distanceTo(moai.position) < 1.8) {
       crystals++;
+      totalSeals++;
       energy = 100;
       playerHealth = Math.min(100, playerHealth + 9);
       world.remove(crystal);
       pickupCrystals.splice(i, 1);
       blip(980, 0.16, 0.1, 'triangle');
-      if (crystals >= SEALS_REQUIRED && !escapeOpen) {
+      if (crystals >= getSealsRequired() && !escapeOpen) {
         escapeOpen = true;
         activateFinalSwarm();
         blip(1240, 0.35, 0.12, 'triangle');
@@ -802,6 +1177,57 @@ function updatePickups(dt) {
   if (escapeOpen && moai.position.distanceTo(escapeGate.position) < 4.7) {
     finishGame(true);
   }
+}
+
+function updateTeleportRings(dt) {
+  if (currentStage !== 2 || !teleportRings.length) return;
+  teleportCooldown = Math.max(0, teleportCooldown - dt);
+
+  teleportRings.forEach((ring, index) => {
+    ring.rotation.y += dt * (0.22 + index * 0.04);
+    ring.children.forEach((child, childIndex) => {
+      if (!child.material) return;
+      const glow = 0.75 + Math.sin(performance.now() * 0.004 + index + childIndex * 0.7) * 0.35;
+      if ('opacity' in child.material) child.material.opacity = childIndex === 2 ? 0.08 + glow * 0.08 : 0.16 + glow * 0.42;
+      if ('emissiveIntensity' in child.material) child.material.emissiveIntensity = 0.95 + glow * 1.35;
+    });
+  });
+
+  if (teleportCooldown > 0) return;
+
+  const activeRingIndex = teleportRings.findIndex((ring) => {
+    const flatDistance = new THREE.Vector2(moai.position.x - ring.position.x, moai.position.z - ring.position.z).length();
+    return flatDistance < 4.6;
+  });
+  if (activeRingIndex < 0) return;
+
+  const source = teleportRings[activeRingIndex];
+  const target = teleportRings[source.userData.targetIndex] || teleportRings[(activeRingIndex + 1) % teleportRings.length];
+  const exitDirection = escapeGate.position.clone().sub(target.position).setY(0);
+  if (exitDirection.lengthSq() < 0.1) exitDirection.set(0, 0, 1);
+  exitDirection.normalize();
+  moai.position.copy(target.position).add(exitDirection.multiplyScalar(6.8));
+  moai.position.y = 0;
+  playerVelocity.set(0, 0, 0);
+  energy = Math.max(18, energy - 18);
+  teleportCooldown = 1.25;
+  teleportAlertTimer = 4.2;
+  panicTimer = Math.max(panicTimer, 0.6);
+  screenShake = 0.45;
+  pullAuthorsTowardTeleport(target.position);
+  blip(1320, 0.08, 0.11, 'triangle');
+  setTimeout(() => blip(660, 0.14, 0.09, 'sine'), 80);
+}
+
+function pullAuthorsTowardTeleport(targetPosition) {
+  getActiveAuthors().forEach((enemy, index) => {
+    const toTarget = targetPosition.clone().sub(enemy.position).setY(0);
+    if (toTarget.lengthSq() < 1) return;
+    const pullDistance = 7.5 + index * 0.9;
+    enemy.position.add(toTarget.normalize().multiplyScalar(pullDistance));
+    enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
+    enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
+  });
 }
 
 function activateFinalSwarm() {
@@ -854,10 +1280,10 @@ function finishGame(won) {
   gameOver = true;
   victory = won;
   stopBgm();
-  if (window.logScore) window.logScore(Math.round(won ? 1000 + energy * 3 + crystals * 80 : crystals * 80));
-  const title = won ? '脱出成功！' : '作者につかまった';
+  if (window.logScore) window.logScore(Math.round(won ? 1400 + energy * 3 + totalSeals * 95 : totalSeals * 80));
+  const title = won ? `${getStageConfig().name} 脱出成功！` : '作者につかまった';
   const body = won
-    ? '封印石を集めきり、ゲートから逃げ切った。もう一度タップで再挑戦。'
+    ? 'ゲートから逃げ切った。好きなステージを選んでもう一度挑戦。'
     : '足音が近い時は視点を回して進路を作り、SPACE/SHIFTでダッシュ。タップで再挑戦。';
   hud.start.style.display = 'flex';
   hud.start.style.opacity = '1';
@@ -866,15 +1292,19 @@ function finishGame(won) {
       <h1>${title}</h1>
       <p class="tap-msg">${body}</p>
       <div class="mission-readout">
-        <span>封印石 ${Math.min(crystals, SEALS_REQUIRED)}/${SEALS_REQUIRED}</span>
+        <span>ステージ ${currentStage}/${STAGES.length}</span>
+        <span>封印石 ${totalSeals}</span>
         <span>スタミナ ${Math.max(0, Math.round(energy))}</span>
       </div>
-      <button class="start-button" type="button">RESTART</button>
+      <div class="stage-select">
+        <button class="stage-button" type="button" data-stage="1">STAGE 1</button>
+        <button class="stage-button stage-night" type="button" data-stage="2">STAGE 2</button>
+      </div>
     </div>
   `;
 }
 
-function resetGame() {
+function resetGame(stage = 1) {
   gameStarted = true;
   gameOver = false;
   victory = false;
@@ -882,9 +1312,14 @@ function resetGame() {
   authorHealth = 140;
   energy = 100;
   crystals = 0;
+  totalSeals = 0;
+  currentStage = THREE.MathUtils.clamp(Number(stage) || 1, 1, STAGES.length);
   escapeOpen = false;
   finalSwarmActive = false;
   panicTimer = 0;
+  stageTransitionTimer = 0;
+  teleportCooldown = 0;
+  teleportAlertTimer = 0;
   fireCooldown = 0;
   authorFireCooldown = 1.0;
   authorTauntTimer = 1.4;
@@ -899,15 +1334,10 @@ function resetGame() {
   authorShots.splice(0).forEach((shot) => scene.remove(shot));
   pickupCrystals.splice(0).forEach((crystal) => world.remove(crystal));
 
-  moai.position.set(0, 0, 28);
+  createWorld();
+  moai.position.fromArray(getStageConfig().start);
   moai.rotation.set(0, 0, 0);
   resetAuthorPositions();
-
-  for (let i = 0; i < SEALS_REQUIRED; i++) {
-    const angle = (i / SEALS_REQUIRED) * Math.PI * 2;
-    const radius = 18 + Math.sin(i * 1.7) * 14;
-    addCrystal(Math.cos(angle) * radius, Math.sin(angle) * radius);
-  }
 
   if (hud.start) hud.start.style.display = 'none';
   if (window.logPlayerStart) window.logPlayerStart();
@@ -923,14 +1353,24 @@ function animate() {
     fireCooldown = Math.max(0, fireCooldown - dt);
     cameraYaw += (Number(keys.lookLeft) - Number(keys.lookRight)) * 2.8 * dt;
     panicTimer = Math.max(0, panicTimer - dt);
+    stageTransitionTimer = Math.max(0, stageTransitionTimer - dt);
+    teleportAlertTimer = Math.max(0, teleportAlertTimer - dt);
     movePlayer(dt);
     updateAuthors(dt);
     updateShots(dt);
     updatePickups(dt);
+    updateTeleportRings(dt);
   }
 
   props.forEach((prop, i) => {
     if (i % 13 === 0) prop.rotation.y += dt * 0.08;
+    if (prop.userData.slowSpin) prop.rotation.y += prop.userData.slowSpin * dt;
+    if (prop.userData.faceCamera) prop.lookAt(camera.position);
+    if (prop.userData.pulse && prop.material) {
+      const glow = 0.75 + Math.sin(performance.now() * 0.0028 + prop.userData.pulse) * 0.35;
+      if ('opacity' in prop.material) prop.material.opacity = THREE.MathUtils.clamp(glow * 0.22, 0.08, 0.82);
+      if ('emissiveIntensity' in prop.material) prop.material.emissiveIntensity = 0.75 + glow * 0.85;
+    }
   });
 
   updateCamera(dt);
@@ -1061,7 +1501,11 @@ setupTouchButton(hud.down, 'backward');
 setupTouchButton(hud.fire, 'fire');
 
 if (hud.start) {
-  hud.start.addEventListener('click', resetGame);
+  hud.start.addEventListener('click', (event) => {
+    const stageButton = event.target.closest?.('[data-stage]');
+    if (!stageButton) return;
+    resetGame(stageButton.dataset.stage);
+  });
 }
 
 window.addEventListener('resize', () => {
