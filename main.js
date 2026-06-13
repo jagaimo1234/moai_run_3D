@@ -9,10 +9,31 @@ const SHOT_SPEED = 28;
 const SEALS_REQUIRED = 7;
 const INITIAL_AUTHOR_COUNT = 3;
 const FINAL_AUTHOR_COUNT = 7;
+const MOATARO_SERVICE = {
+  center: new THREE.Vector3(27, 0, 43),
+  radius: 6.6,
+  clerkSpot: new THREE.Vector3(27, 0, 31.5),
+};
+const MOATARO_LINES = [
+  'こんにちは、モアイを作っています',
+  'おすわりモアイおすすめです',
+  'あなたが来るの待ってました',
+];
+const MOATARO_LINE_VOICES = [
+  { text: 'こんにちは、モアイを作っています', src: './voice/hello.m4a' },
+  { text: 'おすわりモアイおすすめです', src: './voice/osuwariosusume.m4a' },
+  { text: 'あなたが来るの待ってました', src: './voice/waitingu.m4a' },
+];
+const VOICE_FILES = {
+  thanks: './voice/thankyu.m4a',
+  yogurtStolen: './voice/myyogrut.m4a',
+  bad: './voice/mazui.m4a',
+  yogurtTime: './voice/kanpai.m4a',
+};
 const STAGES = [
   {
     name: 'STAGE 1: OPEN WORLD',
-    mission: '青い封印石を集めろ',
+    mission: 'ヨーグルトを集めろ',
     seals: 7,
     start: [0, 0, 28],
     gate: [0, 0, 58],
@@ -28,7 +49,7 @@ const STAGES = [
   },
   {
     name: 'STAGE 2: NIGHT RUINS',
-    mission: '夜の遺跡から脱出しろ',
+    mission: '夜の遺跡のヨーグルトを集めろ',
     seals: 6,
     start: [0, 0, -54],
     gate: [0, 0, 60],
@@ -42,6 +63,38 @@ const STAGES = [
     grid2: 0x314b49,
     road: 0x58525e,
   },
+  {
+    name: 'STAGE 3: MAZE COURTYARD',
+    mission: '迷路庭園のヨーグルトを集めろ',
+    seals: 7,
+    start: [0, 0, -58],
+    gate: [0, 0, 61],
+    initialAuthors: 5,
+    authorBoost: 2.05,
+    sky: 0x0b1216,
+    fogNear: 16,
+    fogFar: 76,
+    ground: 0x34423c,
+    grid: 0x8ad7ff,
+    grid2: 0x25303a,
+    road: 0x4b5260,
+  },
+  {
+    name: 'STAGE 4: HMJ MARCHE HALL',
+    mission: '会場ブースのヨーグルトを集めろ',
+    seals: 7,
+    start: [0, 0, -58],
+    gate: [0, 0, 61],
+    initialAuthors: 5,
+    authorBoost: 1.85,
+    sky: 0xeaf7ff,
+    fogNear: 42,
+    fogFar: 118,
+    ground: 0xd8dde2,
+    grid: 0x77f4ff,
+    grid2: 0xb7c6cc,
+    road: 0xf6f2e8,
+  },
 ];
 
 const scene = new THREE.Scene();
@@ -49,10 +102,11 @@ scene.background = new THREE.Color(0x7fc6df);
 scene.fog = new THREE.Fog(0x7fc6df, 34, 105);
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 180);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const IS_MOBILE_DEVICE = window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 720;
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_MOBILE_DEVICE, powerPreference: 'high-performance' });
+renderer.setPixelRatio(IS_MOBILE_DEVICE ? 1 : Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !IS_MOBILE_DEVICE;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
@@ -62,8 +116,8 @@ const gltfLoader = new GLTFLoader();
 
 const sun = new THREE.DirectionalLight(0xffffff, 2.4);
 sun.position.set(18, 25, 12);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.castShadow = !IS_MOBILE_DEVICE;
+sun.shadow.mapSize.set(IS_MOBILE_DEVICE ? 512 : 2048, IS_MOBILE_DEVICE ? 512 : 2048);
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 80;
 sun.shadow.camera.left = -55;
@@ -78,6 +132,9 @@ scene.add(world);
 
 const moai = new THREE.Group();
 scene.add(moai);
+const blueHelper = new THREE.Group();
+blueHelper.visible = false;
+scene.add(blueHelper);
 
 const author = new THREE.Group();
 scene.add(author);
@@ -90,19 +147,22 @@ const keys = {
   left: false,
   right: false,
   fire: false,
+  help: false,
   lookLeft: false,
   lookRight: false,
 };
 
 let gameStarted = false;
 let gameOver = false;
+let gamePaused = false;
 let victory = false;
 let playerHealth = 100;
 let authorHealth = 140;
 let energy = 100;
 let crystals = 0;
 let totalSeals = 0;
-let currentStage = 1;
+let stolenYogurts = 0;
+let currentStage = 4;
 let fireCooldown = 0;
 let authorFireCooldown = 1.4;
 let authorTauntTimer = 0;
@@ -113,6 +173,21 @@ let panicTimer = 0;
 let stageTransitionTimer = 0;
 let teleportCooldown = 0;
 let teleportAlertTimer = 0;
+let helperTimer = 0;
+let helperCooldown = 0;
+let helperTurnTimer = 0;
+let playerHitCooldown = 0;
+let moataroServiceActive = false;
+let moataroServiceLine = MOATARO_LINES[0];
+let moataroServiceVoiceSrc = MOATARO_LINE_VOICES[0].src;
+let moataroSpeechTimer = 0;
+let moataroPromptDismissed = false;
+let moataroMoaiPurchased = false;
+let moataroInvincibleTimer = 0;
+let moataroClerkSafeTimer = 0;
+let hudUpdateTimer = 0;
+let speechPrimed = false;
+let cachedJapaneseVoice = null;
 let cameraYaw = Math.PI;
 let cameraPitch = 0.46;
 let cameraDistance = 10.5;
@@ -128,6 +203,7 @@ const mobileMove = {
   z: 0,
 };
 const playerVelocity = new THREE.Vector3();
+const helperVelocity = new THREE.Vector3();
 
 const playerShots = [];
 const authorShots = [];
@@ -137,11 +213,27 @@ const authors = [];
 const safetyZones = [];
 const teleportRings = [];
 const obstacleColliders = [];
+const contactEffects = [];
+const celeryCustomers = [];
+const regularCustomers = [];
+const petMoai = new THREE.Group();
+petMoai.visible = false;
+scene.add(petMoai);
 
 const hud = {
   hint: document.getElementById('ui-text'),
   start: document.getElementById('start-screen'),
   fire: document.getElementById('btn-fire'),
+  help: document.getElementById('btn-help'),
+  shop: document.getElementById('shop-dialog'),
+  shopLine: document.getElementById('shop-line'),
+  buyMoai: document.getElementById('btn-buy-moai'),
+  skipMoai: document.getElementById('btn-skip-moai'),
+  replayLine: document.getElementById('btn-replay-line'),
+  viewCatalog: document.getElementById('btn-view-catalog'),
+  catalogOverlay: document.getElementById('catalog-overlay'),
+  catalogFrame: document.getElementById('catalog-frame'),
+  catalogClose: document.getElementById('catalog-close'),
   mobileStick: document.getElementById('mobile-stick'),
 };
 
@@ -152,6 +244,9 @@ let bgmStep = 0;
 let bgmRunning = false;
 let bgmGain = null;
 let bgmMode = 'menu';
+let yogurtTimeVoiceCooldown = 0;
+const recordedVoiceBuffers = new Map();
+const recordedVoicePromises = new Map();
 const bgmThemes = [
   {
     bass: [55, 55, 65.41, 55, 73.42, 65.41, 49, 55],
@@ -169,7 +264,30 @@ const bgmThemes = [
     baseInterval: 238,
     leadType: 'sawtooth',
   },
+  {
+    bass: [36.71, 43.65, 36.71, 49, 55, 49, 43.65, 36.71],
+    lead: [146.83, 0, 164.81, 0, 174.61, 0, 130.81, 0, 123.47, 0, 130.81, 0, 164.81, 0, 146.83, 0],
+    harmony: [73.42, 87.31, 98, 87.31, 65.41, 73.42, 82.41, 73.42],
+    drumEvery: 3,
+    baseInterval: 248,
+    leadType: 'triangle',
+  },
+  {
+    bass: [65.41, 65.41, 73.42, 82.41, 98, 82.41, 73.42, 65.41],
+    lead: [261.63, 293.66, 329.63, 0, 392, 329.63, 293.66, 0, 349.23, 392, 440, 0, 329.63, 293.66, 261.63, 0],
+    harmony: [130.81, 146.83, 164.81, 196, 164.81, 146.83, 130.81, 146.83],
+    drumEvery: 4,
+    baseInterval: 214,
+    leadType: 'square',
+  },
 ];
+
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedJapaneseVoice = null;
+    getJapaneseVoice();
+  };
+}
 
 fetch('./uservoice.m4a')
   .then((res) => res.arrayBuffer())
@@ -213,6 +331,93 @@ function createFallbackMoai() {
   moai.add(legR);
 }
 
+function createBlueHelperModel() {
+  while (blueHelper.children.length) blueHelper.remove(blueHelper.children[0]);
+  const blue = new THREE.MeshStandardMaterial({
+    color: 0x4ab7ff,
+    emissive: 0x126cff,
+    emissiveIntensity: 0.42,
+    roughness: 0.62,
+    metalness: 0.18,
+  });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x071829, emissive: 0x0b5dff, emissiveIntensity: 0.35 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.25, 2, 1), blue);
+  body.position.y = 1.15;
+  body.castShadow = true;
+  blueHelper.add(body);
+
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.65, 0.5), blue);
+  nose.position.set(0, 1.38, -0.62);
+  nose.castShadow = true;
+  blueHelper.add(nose);
+
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.04), dark);
+  eyeL.position.set(-0.28, 1.72, -0.54);
+  blueHelper.add(eyeL);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.28;
+  blueHelper.add(eyeR);
+
+  blueHelper.add(createBlueHelperHalo());
+}
+
+function createPetMoaiModel() {
+  while (petMoai.children.length) petMoai.remove(petMoai.children[0]);
+  const texture = textureLoader.load('./moai_shot.png');
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = true;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+  }));
+  sprite.position.y = 1.05;
+  sprite.scale.set(1.85, 1.85, 1);
+  sprite.userData.faceCamera = true;
+  petMoai.add(sprite);
+
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.85, 24),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18, depthWrite: false })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.04;
+  petMoai.add(shadow);
+}
+
+function createBlueHelperHalo() {
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(1.55, 0.07, 8, 36),
+    new THREE.MeshStandardMaterial({ color: 0x77f4ff, emissive: 0x2ce8ff, emissiveIntensity: 1.2, roughness: 0.2 })
+  );
+  halo.rotation.x = Math.PI / 2;
+  halo.position.y = 0.12;
+  return halo;
+}
+
+function applyBlueHelperGlbModel(sourceModel) {
+  while (blueHelper.children.length) blueHelper.remove(blueHelper.children[0]);
+  const helperModel = sourceModel.clone(true);
+  helperModel.scale.setScalar(1.35);
+  helperModel.rotation.y = -Math.PI / 2;
+  helperModel.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    child.material = new THREE.MeshStandardMaterial({
+      color: 0x4ab7ff,
+      emissive: 0x0d6dff,
+      emissiveIntensity: 0.42,
+      roughness: 0.58,
+      metalness: 0.18,
+      map: child.material?.map || null,
+    });
+  });
+  blueHelper.add(helperModel);
+  blueHelper.add(createBlueHelperHalo());
+}
+
 function loadMoaiModel() {
   createFallbackMoai();
   gltfLoader.load(
@@ -229,6 +434,7 @@ function loadMoaiModel() {
         }
       });
       moai.add(model);
+      applyBlueHelperGlbModel(model);
     },
     undefined,
     () => {}
@@ -283,12 +489,115 @@ function createAuthorBrain(index) {
   };
 }
 
+function createTextSprite(text, color = '#ffffff', fontSize = 46) {
+  const texture = createTextTexture(text, color, fontSize);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+  sprite.scale.set(5.6, 1.4, 1);
+  return sprite;
+}
+
+function createTextTexture(text, color = '#ffffff', fontSize = 46) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.68)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#77f4ff';
+  ctx.lineWidth = 7;
+  ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize}px DotGothic16, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function setTextSprite(sprite, text, color = '#ffffff', fontSize = 46) {
+  if (!sprite?.material) return;
+  sprite.material.map?.dispose?.();
+  sprite.material.map = createTextTexture(text, color, fontSize);
+  sprite.material.needsUpdate = true;
+}
+
+function setupAuthorYogurtVisual(enemy) {
+  if (enemy.userData.yogurtIcon) return;
+  const yogurtTexture = textureLoader.load('./yogurt.png');
+  yogurtTexture.flipY = true;
+  const icon = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: yogurtTexture,
+    transparent: true,
+    depthWrite: false,
+  }));
+  icon.position.set(0, 5.15, 0);
+  icon.scale.set(1.25, 1.25, 1);
+  icon.visible = false;
+  enemy.add(icon);
+
+  const label = createTextSprite('ヨーグルトタイム', '#fff6bf');
+  label.position.set(0, 6.45, 0);
+  label.visible = false;
+  enemy.add(label);
+
+  const downLabel = createTextSprite('まずい！', '#d9ff8a');
+  downLabel.position.set(0, 5.85, 0);
+  downLabel.visible = false;
+  enemy.add(downLabel);
+
+  const serviceLabel = createTextSprite(MOATARO_LINES[0], '#fff6cf', 24);
+  serviceLabel.position.set(0, 5.65, 0);
+  serviceLabel.scale.set(4.6, 1.08, 1);
+  serviceLabel.visible = false;
+  enemy.add(serviceLabel);
+
+  enemy.userData.yogurtIcon = icon;
+  enemy.userData.yogurtLabel = label;
+  enemy.userData.downLabel = downLabel;
+  enemy.userData.serviceLabel = serviceLabel;
+}
+
+function resetAuthorYogurtState(enemy, index) {
+  setupAuthorYogurtVisual(enemy);
+  const hasYogurt = currentStage === 4 && index % 2 === 0;
+  enemy.userData.hasYogurt = hasYogurt;
+  enemy.userData.yogurtTime = 0;
+  enemy.userData.yogurtCooldown = THREE.MathUtils.randFloat(2.5, 7.5) + index * 0.8;
+  enemy.userData.downTimer = 0;
+  enemy.userData.yogurtIcon.visible = hasYogurt;
+  enemy.userData.yogurtLabel.visible = false;
+  enemy.userData.downLabel.visible = false;
+  enemy.userData.serviceLabel.visible = false;
+}
+
+function playYogurtStolenVoice() {
+  blip(260, 0.08, 0.09, 'sawtooth');
+  setTimeout(() => blip(190, 0.12, 0.1, 'sawtooth'), 80);
+  if (!playRecordedVoice(VOICE_FILES.yogurtStolen)) {
+    speakText('俺のヨーグルトが！！', { rate: 1.08, pitch: 0.78, volume: 0.95 });
+  }
+}
+
 function getStageConfig() {
   return STAGES[currentStage - 1] || STAGES[0];
 }
 
 function getSealsRequired() {
   return getStageConfig().seals;
+}
+
+function canOpenEscapeGate() {
+  return crystals >= getSealsRequired() && (currentStage !== 4 || stolenYogurts > 0);
+}
+
+function getGroundHeight(x, z) {
+  return 0;
+}
+
+function setEntityGroundHeight(entity) {
+  entity.position.y = getGroundHeight(entity.position.x, entity.position.z);
 }
 
 function createWorld() {
@@ -300,6 +609,9 @@ function createWorld() {
   pickupCrystals.length = 0;
   teleportRings.length = 0;
   obstacleColliders.length = 0;
+  contactEffects.length = 0;
+  celeryCustomers.length = 0;
+  regularCustomers.length = 0;
   scene.background = new THREE.Color(config.sky);
   scene.fog = new THREE.Fog(config.sky, config.fogNear, config.fogFar);
 
@@ -333,7 +645,7 @@ function createWorld() {
     addSafetyZone(-24, -18, 7.4);
     addSafetyZone(25, 18, 7.4);
     addSafetyZone(-28, 25, 7.4);
-  } else {
+  } else if (currentStage === 2) {
     addNightSkyDetails();
     addLandmark(-32, -28, 0x6be7ff, 'moon-tower');
     addLandmark(34, -12, 0xa878ff, 'ruin-core');
@@ -347,10 +659,14 @@ function createWorld() {
     addRuinWall(0, 36, 36, 3.2);
     addAncientRunes();
     addMistColumns();
+  } else if (currentStage === 3) {
+    addStageThreeStructures();
+  } else {
+    addMarketStageStructures();
   }
   createEscapeGate();
 
-  const propCount = currentStage === 2 ? 30 : 95;
+  const propCount = currentStage === 2 ? 30 : currentStage === 3 ? 42 : currentStage === 4 ? (IS_MOBILE_DEVICE ? 6 : 18) : 95;
   for (let i = 0; i < propCount; i++) {
     const x = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
     const z = THREE.MathUtils.randFloatSpread(WORLD_SIZE * 1.55);
@@ -363,19 +679,21 @@ function createWorld() {
       new THREE.MeshStandardMaterial({
         color: currentStage === 2
           ? new THREE.Color().setHSL(0.58, 0.22, THREE.MathUtils.randFloat(0.22, 0.38))
+          : currentStage === 3
+            ? new THREE.Color().setHSL(0.53, 0.16, THREE.MathUtils.randFloat(0.3, 0.44))
           : new THREE.Color().setHSL(0.08, 0.25, THREE.MathUtils.randFloat(0.45, 0.62)),
         roughness: 0.88,
-        emissive: currentStage === 2 ? 0x030a10 : 0x000000,
-        emissiveIntensity: currentStage === 2 ? 0.28 : 0,
+        emissive: currentStage === 2 ? 0x030a10 : currentStage === 3 ? 0x06151a : 0x000000,
+        emissiveIntensity: currentStage === 2 ? 0.28 : currentStage === 3 ? 0.18 : 0,
       })
     );
-    rock.position.set(x, height / 2, z);
+    rock.position.set(x, getGroundHeight(x, z) + height / 2, z);
     rock.rotation.y = Math.random() * Math.PI;
     rock.castShadow = true;
     rock.receiveShadow = true;
     world.add(rock);
     props.push(rock);
-    addCircleCollider(x, z, Math.max(topRadius, bottomRadius) + (currentStage === 2 ? 0.35 : 0.55));
+    addCircleCollider(x, z, Math.max(topRadius, bottomRadius) + (currentStage === 2 ? 0.35 : 0.5));
   }
 
   placeStageCrystals();
@@ -537,6 +855,608 @@ function addMistColumns() {
   });
 }
 
+function addStageThreeStructures() {
+  addNightSkyDetails();
+  addLandmark(-35, -36, 0x4ab7ff, 'helper-shrine');
+  addLandmark(36, 30, 0xffc857, 'maze-tower');
+  addSafetyZone(-35, -36, 5.7);
+  addSafetyZone(36, 30, 5.5);
+
+  const glowMat = new THREE.MeshStandardMaterial({
+    color: 0x4ab7ff,
+    emissive: 0x127cff,
+    emissiveIntensity: 1.05,
+    roughness: 0.2,
+  });
+
+  const walls = [
+    [0, -44, 54, 3.2],
+    [-28, -22, 3.2, 34],
+    [28, -18, 3.2, 28],
+    [0, -4, 34, 3.2],
+    [-42, 14, 28, 3.2],
+    [42, 15, 28, 3.2],
+    [-12, 26, 3.2, 30],
+    [18, 39, 34, 3.2],
+    [0, 56, 46, 3.2],
+  ];
+  walls.forEach(([x, z, width, depth]) => addStageBox(x, z, width, depth, 5.4, 0x182631, 0, true));
+
+  const lowBlocks = [
+    [-46, -4, 10, 10],
+    [46, -38, 10, 10],
+    [-48, 42, 12, 12],
+    [48, 45, 10, 10],
+    [0, 18, 10, 10],
+  ];
+  lowBlocks.forEach(([x, z, width, depth]) => addStageBox(x, z, width, depth, 1.2, 0x2d3a40, 0, true));
+
+  [-48, -22, 22, 48].forEach((x, index) => {
+    const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 5.5, 12), glowMat);
+    marker.position.set(x, 2.75, index % 2 ? 28 : -42);
+    marker.castShadow = true;
+    marker.userData.pulse = index * 0.5;
+    world.add(marker);
+    props.push(marker);
+  });
+
+  addMazePad(-18, -32, 0x4ab7ff);
+  addMazePad(33, -2, 0xff5f7e);
+  addMazePad(-31, 28, 0xffc857);
+  addMazePad(6, 47, 0x9dffbf);
+}
+
+function addStageBox(x, z, width, depth, height, color, yOffset = 0, collides = true) {
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.86, emissive: 0x03080a, emissiveIntensity: 0.18 })
+  );
+  box.position.set(x, getGroundHeight(x, z) + yOffset + height / 2, z);
+  box.castShadow = true;
+  box.receiveShadow = true;
+  world.add(box);
+  props.push(box);
+  if (collides) addBoxCollider(x, z, width + 0.4, depth + 0.4);
+}
+
+function addMazePad(x, z, color) {
+  const pad = new THREE.Mesh(
+    new THREE.CircleGeometry(5.4, 48),
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.55,
+      transparent: true,
+      opacity: 0.34,
+      roughness: 0.28,
+      side: THREE.DoubleSide,
+    })
+  );
+  pad.rotation.x = -Math.PI / 2;
+  pad.position.set(x, 0.09, z);
+  pad.userData.pulse = Math.random() * 2;
+  world.add(pad);
+  props.push(pad);
+}
+
+function addMarketStageStructures() {
+  addMarketHallShell();
+  addLandmark(-42, -42, 0x77f4ff, 'info-counter');
+  addLandmark(42, 38, 0xffc857, 'catalog-corner');
+  addSafetyZone(-42, -42, 6.2);
+  addSafetyZone(42, 38, 5.8);
+  addSafetyZone(MOATARO_SERVICE.center.x, MOATARO_SERVICE.center.z, MOATARO_SERVICE.radius);
+
+  addMarketSign(0, -64, 'HMJ GATE', 0x00d2ff);
+  addMarketSign(-48, -8, 'CRAFT', 0xffc857);
+  addMarketSign(48, 8, 'ACCESSORY', 0xff5f7e);
+  addMarketSign(0, 52, 'KANAZAWA MOATARO', 0x77f4ff);
+
+  const boothRows = [-36, -18, 0, 18, 36];
+  const boothCols = [-45, -27, -9, 9, 27, 45];
+  boothRows.forEach((z, row) => {
+    boothCols.forEach((x, col) => {
+      if ((row === 2 && Math.abs(x) < 12) || (col === 0 && z < -20) || (col === boothCols.length - 1 && z > 20)) return;
+      const color = [0x77f4ff, 0xffc857, 0xff7aa8, 0x9dffbf][(row + col) % 4];
+      addBooth(x, z, color, row, col);
+    });
+  });
+
+  addAisleCarpet(0, -16, 9, 92, 0xf7f1df);
+  addAisleCarpet(-28, 9, 44, 7, 0xeaf7ff);
+  addAisleCarpet(28, 27, 44, 7, 0xeaf7ff);
+
+  addMarketCounter(0, 8, 12, 5, 0x1f2d36);
+  addMarketCounter(-54, 50, 12, 5, 0x32424c);
+  addMarketCounter(54, -48, 12, 5, 0x32424c);
+  addCeleryCustomers();
+  addRegularCustomers();
+}
+
+function addRegularCustomers() {
+  const customerFiles = ['./custmer1.png', './custmer2.png', './custmer3.png'];
+  const materials = customerFiles.map((file) => {
+    const texture = textureLoader.load(file);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.flipY = true;
+    return new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+    });
+  });
+  const spots = [
+    [-31, -52, 3.05, 0],
+    [3, -47, 2.9, 1],
+    [34, -49, 3.08, 2],
+    [-64, 23, 2.88, 1],
+    [-37, 8, 3.0, 2],
+    [39, -9, 2.92, 0],
+    [63, 36, 3.04, 1],
+    [-11, 42, 2.96, 2],
+    [29, 51, 2.9, 0],
+    [-53, -31, 3.02, 2],
+    [-21, -20, 2.86, 1],
+    [22, -24, 3.14, 0],
+    [50, -31, 2.98, 2],
+    [-61, 49, 2.9, 0],
+    [-29, 55, 3.08, 1],
+    [6, 26, 2.88, 2],
+    [46, 45, 3.04, 0],
+    [58, -3, 2.94, 1],
+    [-9, -57, 2.92, 0],
+    [16, -58, 3.02, 2],
+    [-44, -47, 2.86, 1],
+    [57, -55, 3.08, 0],
+    [-67, -18, 3.0, 2],
+    [67, -19, 2.9, 1],
+    [-5, 3, 3.06, 1],
+    [18, 5, 2.86, 2],
+    [-51, 18, 2.95, 0],
+    [51, 22, 3.05, 2],
+    [-66, 62, 2.9, 1],
+    [-42, 64, 3.0, 0],
+    [19, 64, 2.92, 2],
+    [63, 61, 3.08, 1],
+  ];
+  const activeSpots = IS_MOBILE_DEVICE ? spots.slice(0, 12) : spots;
+  activeSpots.forEach(([x, z, scale, materialIndex], index) => {
+    const customer = new THREE.Sprite(materials[materialIndex].clone());
+    customer.position.set(x, scale * 0.46 + Math.sin(index * 0.8) * 0.04, z);
+    customer.scale.set(scale, scale, 1);
+    customer.userData.faceCamera = true;
+    customer.userData.baseY = customer.position.y;
+    customer.userData.slowBob = 3.0 + index * 0.45;
+    customer.userData.collisionRadius = scale * 0.3;
+    customer.userData.phase = index * 1.27;
+    customer.userData.walkAngle = index * 0.62 + 0.4;
+    customer.userData.turnTimer = THREE.MathUtils.randFloat(1.0, 2.6);
+    world.add(customer);
+    props.push(customer);
+    regularCustomers.push(customer);
+  });
+}
+
+function addCeleryCustomers() {
+  const celeryTexture = textureLoader.load('./obstacle_celery.png');
+  celeryTexture.colorSpace = THREE.SRGBColorSpace;
+  celeryTexture.flipY = true;
+  const celeryMaterial = new THREE.SpriteMaterial({
+    map: celeryTexture,
+    transparent: true,
+    depthWrite: false,
+  });
+  const spots = [
+    [-14, -48, 3.0],
+    [18, -43, 2.82],
+    [-58, -6, 2.9],
+    [58, 14, 3.02],
+    [-20, 10, 2.86],
+    [23, 29, 3.1],
+    [-47, 47, 2.94],
+    [9, 50, 2.82],
+    [-42, -26, 3.0],
+    [47, -45, 2.9],
+    [-4, -12, 2.86],
+    [51, 53, 3.08],
+  ];
+  const activeSpots = IS_MOBILE_DEVICE ? spots.slice(0, 5) : spots;
+  activeSpots.forEach(([x, z, scale], index) => {
+    const customer = new THREE.Sprite(celeryMaterial.clone());
+    customer.position.set(x, scale * 0.46 + Math.sin(index) * 0.04, z);
+    customer.scale.set(scale, scale, 1);
+    customer.userData.faceCamera = true;
+    customer.userData.baseY = customer.position.y;
+    customer.userData.slowBob = index * 0.7;
+    customer.userData.collisionRadius = scale * 0.34;
+    customer.userData.phase = index * 1.83;
+    customer.userData.walkAngle = index * 0.9;
+    customer.userData.turnTimer = THREE.MathUtils.randFloat(0.6, 2.0);
+    customer.userData.hitCooldown = 0;
+    world.add(customer);
+    props.push(customer);
+    celeryCustomers.push(customer);
+  });
+}
+
+function addMarketHallShell() {
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xf7f8f4, roughness: 0.78, metalness: 0.02 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xd7dee3, roughness: 0.68 });
+  const ceilingMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.86,
+    transparent: true,
+    opacity: 0.42,
+    side: THREE.DoubleSide,
+  });
+
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(156, 8.4, 1.2), wallMat);
+  backWall.position.set(0, 4.2, -76);
+  backWall.receiveShadow = true;
+  world.add(backWall);
+  props.push(backWall);
+
+  const frontWall = backWall.clone();
+  frontWall.position.z = 76;
+  world.add(frontWall);
+  props.push(frontWall);
+
+  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1.2, 8.4, 156), wallMat);
+  leftWall.position.set(-76, 4.2, 0);
+  leftWall.receiveShadow = true;
+  world.add(leftWall);
+  props.push(leftWall);
+
+  const rightWall = leftWall.clone();
+  rightWall.position.x = 76;
+  world.add(rightWall);
+  props.push(rightWall);
+
+  for (let z = -62; z <= 62; z += 24) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(152, 0.28, 0.42), trimMat);
+    beam.position.set(0, 8.95, z);
+    beam.castShadow = true;
+    world.add(beam);
+    props.push(beam);
+  }
+  for (let x = -60; x <= 60; x += 24) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 152), trimMat);
+    beam.position.set(x, 8.9, 0);
+    beam.castShadow = true;
+    world.add(beam);
+    props.push(beam);
+  }
+
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(156, 156, 1, 1), ceilingMat);
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.set(0, 9.12, 0);
+  world.add(ceiling);
+  props.push(ceiling);
+
+  const lightStep = IS_MOBILE_DEVICE ? 48 : 24;
+  for (let x = -48; x <= 48; x += lightStep) {
+    for (let z = -48; z <= 48; z += lightStep) {
+      const lightPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(8, 0.08, 2.4),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf8fbff, emissiveIntensity: 0.88, roughness: 0.22 })
+      );
+      lightPanel.position.set(x, 8.72, z);
+      world.add(lightPanel);
+      props.push(lightPanel);
+      if (!IS_MOBILE_DEVICE) {
+        const lamp = new THREE.PointLight(0xffffff, 0.18, 30, 2.2);
+        lamp.position.set(x, 7.6, z);
+        world.add(lamp);
+      }
+    }
+  }
+
+  addMarketWallBanner(0, -75.32, 'HANDMADE MARCHE', 0xffc857);
+  addMarketWallBanner(-75.32, -20, 'J-80  KANAZAWA MOATARO', 0x77f4ff, Math.PI / 2);
+}
+
+function addBooth(x, z, color, row, col) {
+  const isMoataroBooth = row === 4 && col === 4;
+  const boothColor = isMoataroBooth ? 0x77f4ff : color;
+  const accent = [0xffc857, 0xff7aa8, 0x77f4ff, 0x9dffbf][(row * 2 + col) % 4];
+  const table = new THREE.Mesh(
+    new THREE.BoxGeometry(9.8, 1.2, 5.8),
+    new THREE.MeshStandardMaterial({ color: isMoataroBooth ? 0xf8fbff : 0xffffff, roughness: 0.78 })
+  );
+  table.position.set(x, 0.6, z);
+  table.castShadow = true;
+  table.receiveShadow = true;
+  world.add(table);
+  props.push(table);
+  addBoxCollider(x, z, 10.4, 6.4);
+
+  const cloth = new THREE.Mesh(
+    new THREE.BoxGeometry(10.2, 0.18, 6.2),
+    new THREE.MeshStandardMaterial({ color: boothColor, emissive: boothColor, emissiveIntensity: isMoataroBooth ? 0.18 : 0.08, roughness: 0.72 })
+  );
+  cloth.position.set(x, 1.28, z);
+  cloth.castShadow = true;
+  world.add(cloth);
+  props.push(cloth);
+
+  const frontDrape = new THREE.Mesh(
+    new THREE.BoxGeometry(10.4, 1.1, 0.18),
+    new THREE.MeshStandardMaterial({ color: boothColor, emissive: boothColor, emissiveIntensity: isMoataroBooth ? 0.16 : 0.06, roughness: 0.82 })
+  );
+  frontDrape.position.set(x, 0.72, z + 3.18);
+  frontDrape.castShadow = true;
+  world.add(frontDrape);
+  props.push(frontDrape);
+
+  const sign = new THREE.Mesh(
+    new THREE.BoxGeometry(8.5, 1.6, 0.22),
+    isMoataroBooth
+      ? createMultiLineSignMaterial(['J-80', 'Kanazawa Moataro'], 0x77f4ff)
+      : createSignMaterial(['CERAMIC', 'TEXTILE', 'JEWELRY', 'ZAKKA'][(row + col) % 4], color)
+  );
+  sign.position.set(x, 3.0, z - 3.0);
+  sign.castShadow = true;
+  sign.userData.pulse = (row + col) * 0.14;
+  world.add(sign);
+  props.push(sign);
+
+  if (!isMoataroBooth && IS_MOBILE_DEVICE) {
+    addLightweightBoothGoods(x, z, accent, row, col);
+  }
+
+  if (!isMoataroBooth && !IS_MOBILE_DEVICE) {
+    const shelf = new THREE.Mesh(
+      new THREE.BoxGeometry(7.2, 0.22, 0.7),
+      new THREE.MeshStandardMaterial({ color: 0xcaa77d, roughness: 0.62 })
+    );
+    shelf.position.set(x, 2.02, z - 1.15);
+    shelf.castShadow = true;
+    world.add(shelf);
+    props.push(shelf);
+
+    for (let i = 0; i < 5; i++) {
+      const gx = x - 3.2 + i * 1.6;
+      const gz = z + (i % 2 ? 0.7 : -0.05);
+      const shape = (i + row + col) % 3;
+      const geometry = shape === 0
+        ? new THREE.CylinderGeometry(0.32, 0.42, 0.75, 12)
+        : shape === 1
+          ? new THREE.BoxGeometry(0.72, 0.58, 0.72)
+          : new THREE.SphereGeometry(0.42, 14, 10);
+      const goods = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({
+          color: i % 2 ? accent : 0xf4f1db,
+          emissive: i % 2 ? accent : 0x000000,
+          emissiveIntensity: i % 2 ? 0.12 : 0,
+          roughness: 0.5,
+          metalness: shape === 2 ? 0.08 : 0,
+        })
+      );
+      goods.position.set(gx, 1.85 + (shape === 2 ? 0.1 : 0), gz);
+      goods.castShadow = true;
+      world.add(goods);
+      props.push(goods);
+    }
+
+    const priceTag = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.75, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xfff3b0, roughness: 0.7, emissive: 0xffd36a, emissiveIntensity: 0.08 })
+    );
+    priceTag.position.set(x + 3.5, 1.78, z + 2.0);
+    priceTag.rotation.x = -0.25;
+    priceTag.castShadow = true;
+    world.add(priceTag);
+    props.push(priceTag);
+
+    const lamp = new THREE.Mesh(
+      new THREE.ConeGeometry(0.55, 0.8, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: accent, emissiveIntensity: 0.28, roughness: 0.35 })
+    );
+    lamp.position.set(x - 4.2, 2.55, z - 1.8);
+    lamp.rotation.x = Math.PI;
+    lamp.castShadow = true;
+    world.add(lamp);
+    props.push(lamp);
+
+    if ((row + col) % 3 === 0) {
+      const miniBanner = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 2.2, 1.6),
+        new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.12, roughness: 0.74 })
+      );
+      miniBanner.position.set(x - 5.1, 2.2, z + 1.65);
+      miniBanner.castShadow = true;
+      world.add(miniBanner);
+      props.push(miniBanner);
+    }
+  }
+
+  if (isMoataroBooth) {
+    addMoataroBoothDetails(x, z);
+  }
+}
+
+function addLightweightBoothGoods(x, z, accent, row, col) {
+  const goodsMat = new THREE.MeshBasicMaterial({
+    color: (row + col) % 2 ? accent : 0xfff3b0,
+    transparent: true,
+    opacity: 0.88,
+  });
+  for (let i = 0; i < 3; i++) {
+    const goods = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.62), goodsMat.clone());
+    goods.position.set(x - 2.1 + i * 2.1, 1.66, z + (i % 2 ? 0.65 : -0.2));
+    goods.rotation.x = -0.7;
+    world.add(goods);
+    props.push(goods);
+  }
+}
+
+function addMoataroBoothDetails(x, z) {
+  const shotTexture = textureLoader.load('./moai_shot.png');
+  shotTexture.colorSpace = THREE.SRGBColorSpace;
+  shotTexture.flipY = true;
+  const shotMaterial = new THREE.SpriteMaterial({
+    map: shotTexture,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(8.6, 0.18, 3.9),
+    new THREE.MeshStandardMaterial({ color: 0xf8fbff, roughness: 0.5, emissive: 0x77f4ff, emissiveIntensity: 0.05 })
+  );
+  plinth.position.set(x, 1.52, z + 0.15);
+  plinth.castShadow = true;
+  world.add(plinth);
+  props.push(plinth);
+
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 6; col++) {
+      const item = new THREE.Sprite(shotMaterial.clone());
+      item.position.set(
+        x - 3.15 + col * 1.26,
+        1.9 + row * 0.03,
+        z - 1.1 + row * 0.72
+      );
+      const scale = 0.9 + (row === 0 ? 0.1 : 0);
+      item.scale.set(scale, scale, 1);
+      world.add(item);
+      props.push(item);
+    }
+  }
+
+  const displayStand = new THREE.Mesh(
+    new THREE.BoxGeometry(8.6, 0.16, 0.38),
+    new THREE.MeshStandardMaterial({ color: 0x13242c, roughness: 0.55, emissive: 0x77f4ff, emissiveIntensity: 0.08 })
+  );
+  displayStand.position.set(x, 1.67, z - 1.55);
+  displayStand.castShadow = true;
+  world.add(displayStand);
+  props.push(displayStand);
+
+  const counterLine = new THREE.Mesh(
+    new THREE.BoxGeometry(8.4, 0.08, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0xffc857, emissive: 0xffc857, emissiveIntensity: 0.38, roughness: 0.32 })
+  );
+  counterLine.position.set(x, 1.72, z + 2.55);
+  world.add(counterLine);
+  props.push(counterLine);
+}
+
+function addAisleCarpet(x, z, width, depth, color) {
+  const carpet = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.05, depth),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.9 })
+  );
+  carpet.position.set(x, 0.055, z);
+  carpet.receiveShadow = true;
+  world.add(carpet);
+  props.push(carpet);
+}
+
+function addMarketCounter(x, z, width, depth, color) {
+  const counter = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 2.2, depth),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.7, emissive: 0x061018, emissiveIntensity: 0.1 })
+  );
+  counter.position.set(x, 1.1, z);
+  counter.castShadow = true;
+  counter.receiveShadow = true;
+  world.add(counter);
+  props.push(counter);
+  addBoxCollider(x, z, width + 0.5, depth + 0.5);
+}
+
+function createSignMaterial(label, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#101a20';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.lineWidth = 8;
+  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 42px Outfit, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    color: 0xffffff,
+    emissive: color,
+    emissiveIntensity: 0.18,
+    roughness: 0.42,
+  });
+}
+
+function createMultiLineSignMaterial(lines, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#07131a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.lineWidth = 8;
+  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  ctx.fillStyle = '#fff6cf';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  lines.forEach((line, index) => {
+    ctx.font = index === 0 ? 'bold 44px Outfit, sans-serif' : 'bold 34px Outfit, sans-serif';
+    ctx.fillText(line, canvas.width / 2, 56 + index * 54);
+  });
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    color: 0xffffff,
+    emissive: color,
+    emissiveIntensity: 0.24,
+    roughness: 0.4,
+  });
+}
+
+function addMarketSign(x, z, label, color) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+  world.add(group);
+
+  const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 5.8, 10), new THREE.MeshStandardMaterial({ color: 0x26343d, roughness: 0.55 }));
+  postL.position.set(-4.8, 2.9, 0);
+  postL.castShadow = true;
+  group.add(postL);
+  const postR = postL.clone();
+  postR.position.x = 4.8;
+  group.add(postR);
+
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(11, 2.1, 0.35),
+    createSignMaterial(label, color)
+  );
+  board.position.y = 5.2;
+  board.castShadow = true;
+  board.userData.pulse = x * 0.02 + z * 0.01;
+  group.add(board);
+  props.push(board);
+}
+
+function addMarketWallBanner(x, z, label, color, rotationY = 0) {
+  const banner = new THREE.Mesh(
+    new THREE.BoxGeometry(28, 3.2, 0.16),
+    createSignMaterial(label, color)
+  );
+  banner.position.set(x, 4.9, z);
+  banner.rotation.y = rotationY;
+  banner.castShadow = true;
+  world.add(banner);
+  props.push(banner);
+}
+
 function addRuinWall(x, z, width, depth) {
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(width, 5.2, depth),
@@ -635,11 +1555,70 @@ function resolveObstacleCollisions(entity, radius, onHit) {
 function resolvePlayerObstacleCollisions() {
   if (getCurrentSafetyZone()) return;
   resolveObstacleCollisions(moai, 0.82, () => playerVelocity.multiplyScalar(0.42));
+  resolveCeleryCollisions(moai, 0.82, () => playerVelocity.multiplyScalar(0.42));
+}
+
+function resolveCeleryCollisions(entity, radius, onHit) {
+  if (currentStage !== 4 || !celeryCustomers.length) return;
+  celeryCustomers.forEach((celery) => {
+    const dx = entity.position.x - celery.position.x;
+    const dz = entity.position.z - celery.position.z;
+    const minDistance = radius + (celery.userData.collisionRadius || 1.05);
+    const distanceSq = dx * dx + dz * dz;
+    if (distanceSq <= 0.0001 || distanceSq >= minDistance * minDistance) return;
+    const distance = Math.sqrt(distanceSq);
+    const push = minDistance - distance;
+    entity.position.x += (dx / distance) * push;
+    entity.position.z += (dz / distance) * push;
+    onHit?.(celery);
+  });
+}
+
+function resolveRegularCustomerCollisions(entity, radius, onHit) {
+  if (currentStage !== 4 || !regularCustomers.length) return;
+  regularCustomers.forEach((customer) => {
+    const dx = entity.position.x - customer.position.x;
+    const dz = entity.position.z - customer.position.z;
+    const minDistance = radius + (customer.userData.collisionRadius || 0.85);
+    const distanceSq = dx * dx + dz * dz;
+    if (distanceSq <= 0.0001 || distanceSq >= minDistance * minDistance) return;
+    const distance = Math.sqrt(distanceSq);
+    const push = minDistance - distance;
+    entity.position.x += (dx / distance) * push;
+    entity.position.z += (dz / distance) * push;
+    onHit?.(customer);
+  });
 }
 
 function placeStageCrystals() {
   const required = getSealsRequired();
-  for (let i = 0; i < required; i++) {
+  const pickupCount = currentStage === 4 ? 4 : required;
+  for (let i = 0; i < pickupCount; i++) {
+    if (currentStage === 3) {
+      const spots = [
+        [-8, -38],
+        [28, -26],
+        [-38, -4],
+        [8, 5],
+        [38, 24],
+        [-20, 36],
+        [0, 52],
+      ];
+      const [x, z] = spots[i % spots.length];
+      addCrystal(x, z);
+      continue;
+    }
+    if (currentStage === 4) {
+      const spots = [
+        [-54, -26],
+        [-18, -36],
+        [34, -34],
+        [54, -2],
+      ];
+      const [x, z] = spots[i % spots.length];
+      addCrystal(x, z);
+      continue;
+    }
     const angle = (i / required) * Math.PI * 2 + (currentStage === 2 ? 0.45 : 0);
     const radius = currentStage === 2 ? 24 + Math.sin(i * 2.1) * 16 : 18 + Math.sin(i * 1.7) * 14;
     const x = Math.cos(angle) * radius + (currentStage === 2 ? Math.sin(i * 1.4) * 9 : 0);
@@ -649,8 +1628,9 @@ function placeStageCrystals() {
 }
 
 function addSafetyZone(x, z, radius) {
+  const groundY = getGroundHeight(x, z);
   const zone = {
-    center: new THREE.Vector3(x, 0, z),
+    center: new THREE.Vector3(x, groundY, z),
     radius,
   };
   safetyZones.push(zone);
@@ -666,7 +1646,7 @@ function addSafetyZone(x, z, radius) {
   });
   const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 48), ringMat);
   disc.rotation.x = -Math.PI / 2;
-  disc.position.set(x, 0.08, z);
+  disc.position.set(x, groundY + 0.08, z);
   world.add(disc);
 
   const border = new THREE.Mesh(
@@ -674,20 +1654,21 @@ function addSafetyZone(x, z, radius) {
     new THREE.MeshStandardMaterial({ color: 0x9dffbf, emissive: 0x32ff8a, emissiveIntensity: 0.9, roughness: 0.25 })
   );
   border.rotation.x = Math.PI / 2;
-  border.position.set(x, 0.16, z);
+  border.position.set(x, groundY + 0.16, z);
   world.add(border);
 
   const post = new THREE.Mesh(
     new THREE.CylinderGeometry(0.22, 0.22, 3.2, 12),
     new THREE.MeshStandardMaterial({ color: 0xd8ffe5, emissive: 0x48ff93, emissiveIntensity: 0.45 })
   );
-  post.position.set(x, 1.6, z);
+  post.position.set(x, groundY + 1.6, z);
   post.castShadow = true;
   world.add(post);
 }
 
 function createEscapeGate() {
   escapeGate.position.fromArray(getStageConfig().gate);
+  escapeGate.position.y = getGroundHeight(escapeGate.position.x, escapeGate.position.z);
 
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x323d42, roughness: 0.78, metalness: 0.12 });
   const glowMat = new THREE.MeshStandardMaterial({
@@ -724,7 +1705,7 @@ function createEscapeGate() {
 
 function addLandmark(x, z, color, type) {
   const group = new THREE.Group();
-  group.position.set(x, 0, z);
+  group.position.set(x, getGroundHeight(x, z), z);
   world.add(group);
 
   const base = new THREE.Mesh(
@@ -754,19 +1735,24 @@ function addLandmark(x, z, color, type) {
   group.add(orb);
 }
 
-function addCrystal(x, z) {
+function addCrystal(x, z, fromAuthor = false) {
+  const texture = textureLoader.load('./yogurt.png');
+  texture.flipY = false;
   const crystal = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.72, 0),
+    new THREE.PlaneGeometry(1.65, 1.65),
     new THREE.MeshStandardMaterial({
-      color: 0x9ff7ff,
-      emissive: 0x2ce8ff,
-      emissiveIntensity: 0.8,
-      roughness: 0.25,
-      metalness: 0.2,
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide,
+      color: 0xffffff,
+      emissive: 0x77f4ff,
+      emissiveIntensity: 0.18,
+      roughness: 0.35,
     })
   );
-  crystal.position.set(x, 1.0, z);
+  crystal.position.set(x, getGroundHeight(x, z) + 1.25, z);
   crystal.userData.baseY = crystal.position.y;
+  crystal.userData.fromAuthor = fromAuthor;
   crystal.castShadow = true;
   world.add(crystal);
   pickupCrystals.push(crystal);
@@ -782,9 +1768,48 @@ function setHud() {
     const danger = safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
     const alertHint = teleportAlertTimer > 0 ? '  ワープ音で作者が警戒中' : '';
     const ringHint = currentStage === 2 ? `  光リング: ワープ${alertHint}` : '';
-    const goal = escapeOpen ? '作者7体！ゲートへ逃げ込め' : `${config.mission}: ${required}個${ringHint}`;
-    hud.hint.textContent = `${stageCall}左ドラッグ: 移動  右ドラッグ: 視点  DASH: ダッシュ  作者 ${getActiveAuthors().length}体  距離 ${distance.toFixed(0)}m  ${danger}  ${goal}`;
+    const helperHint = currentStage === 3
+      ? helperTimer > 0
+        ? `  青モアイ囮 ${helperTimer.toFixed(0)}秒`
+        : helperCooldown > 0
+          ? `  HELP再充電 ${helperCooldown.toFixed(0)}秒`
+          : '  HELP使用可'
+      : '';
+    const progress = Math.min(100, Math.round((crystals / required) * 100));
+    const stageFourStealDone = currentStage !== 4 || stolenYogurts > 0;
+    const goal = escapeOpen ? `ゲート解放中: ヨーグルト${required}個を持って脱出` : config.mission;
+    const special = `${ringHint}${helperHint}`.trim();
+    hud.hint.innerHTML = `
+      <div class="hud-main">
+        <span class="hud-title">${stageCall || config.name}</span>
+        <span class="hud-pill hud-danger">${danger}</span>
+      </div>
+      <div class="hud-yogurt-panel">
+        <div class="hud-yogurt-count">${crystals}<small>/ ${required} ヨーグルト</small></div>
+        <div>
+          <div class="hud-meter" style="--hud-progress: ${progress}%"><div class="hud-meter-fill"></div></div>
+          <div class="hud-steps">
+            <span class="hud-step ${crystals >= required ? 'done' : 'warn'}">必要 ${required}個</span>
+            ${currentStage === 4 ? `<span class="hud-step ${stageFourStealDone ? 'done' : 'warn'}">作者から奪取 ${stageFourStealDone ? 'OK' : '必要'}</span>` : ''}
+            <span class="hud-step">作者 ${getActiveAuthors().length}体</span>
+            <span class="hud-step">距離 ${distance.toFixed(0)}m</span>
+          </div>
+        </div>
+      </div>
+      <div class="hud-goal">${goal}${special ? ` / ${special}` : ''}</div>
+      <div class="hud-controls">左ドラッグ 移動 / 右ドラッグ 視点 / DASH ダッシュ</div>
+    `;
   }
+  updateHelpButton();
+}
+
+function updateHelpButton() {
+  if (!hud.help) return;
+  const visible = currentStage === 3 && gameStarted && !gameOver;
+  const ready = visible && helperTimer <= 0 && helperCooldown <= 0;
+  hud.help.style.display = visible ? 'flex' : 'none';
+  hud.help.classList.toggle('disabled', !ready);
+  hud.help.textContent = helperTimer > 0 ? 'HELP' : helperCooldown > 0 ? `${Math.ceil(helperCooldown)}` : 'HELP';
 }
 
 function getNearestAuthorDistance() {
@@ -811,11 +1836,35 @@ function getActiveAuthors() {
 }
 
 function getCurrentSafetyZone() {
-  return safetyZones.find((zone) => moai.position.distanceTo(zone.center) < zone.radius) || null;
+  return safetyZones.find((zone) => {
+    const dx = moai.position.x - zone.center.x;
+    const dz = moai.position.z - zone.center.z;
+    return Math.hypot(dx, dz) < zone.radius;
+  }) || null;
 }
 
 function resetAuthorPositions() {
-  const starts = currentStage === 2
+  const starts = currentStage === 4
+    ? [
+      [-52, -6],
+      [52, -20],
+      [-42, 44],
+      [36, 52],
+      [0, -48],
+      [-58, 18],
+      [58, 20],
+    ]
+    : currentStage === 3
+    ? [
+      [-42, -18],
+      [42, -12],
+      [-28, 42],
+      [31, 48],
+      [0, 28],
+      [-54, 20],
+      [52, -38],
+    ]
+    : currentStage === 2
     ? [
       [-36, 8],
       [36, -2],
@@ -838,9 +1887,11 @@ function resetAuthorPositions() {
   authors.forEach((enemy, index) => {
     const [x, z] = starts[index] || [THREE.MathUtils.randFloatSpread(50), -42 - index * 6];
     enemy.position.set(x, 0, z);
+    setEntityGroundHeight(enemy);
     if (!enemy.userData.ai) enemy.userData.ai = createAuthorBrain(index);
     enemy.userData.ai.active = index < activeCount;
     enemy.visible = enemy.userData.ai.active;
+    resetAuthorYogurtState(enemy, index);
   });
 }
 
@@ -924,6 +1975,141 @@ function stopBgm() {
     bgmGain.gain.cancelScheduledValues(audioCtx.currentTime);
     bgmGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.08);
   }
+}
+
+function primeSpeech() {
+  if (speechPrimed || !('speechSynthesis' in window)) return;
+  speechPrimed = true;
+  try {
+    cachedJapaneseVoice = getJapaneseVoice();
+    const utterance = new SpeechSynthesisUtterance(' ');
+    utterance.lang = 'ja-JP';
+    if (cachedJapaneseVoice) utterance.voice = cachedJapaneseVoice;
+    utterance.volume = 0.01;
+    window.speechSynthesis.speak(utterance);
+  } catch (_) {}
+}
+
+function getJapaneseVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  cachedJapaneseVoice = cachedJapaneseVoice || voices.find((voice) => /ja|japan/i.test(`${voice.lang} ${voice.name}`)) || voices[0] || null;
+  return cachedJapaneseVoice;
+}
+
+function speakText(text, { rate = 1.05, pitch = 0.92, volume = 0.95 } = {}) {
+  if (!('speechSynthesis' in window)) return false;
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = rate;
+    utterance.pitch = pitch;
+    utterance.volume = volume;
+    const voice = getJapaneseVoice();
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.resume?.();
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function loadRecordedVoice(src) {
+  if (!src) return Promise.resolve(null);
+  if (recordedVoiceBuffers.has(src)) return Promise.resolve(recordedVoiceBuffers.get(src));
+  if (recordedVoicePromises.has(src)) return recordedVoicePromises.get(src);
+  const promise = fetch(src)
+    .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(`voice ${res.status}`))))
+    .then((arrayBuffer) => audioCtx.decodeAudioData(arrayBuffer.slice(0)))
+    .then((buffer) => {
+      recordedVoiceBuffers.set(src, buffer);
+      return buffer;
+    })
+    .catch(() => null);
+  recordedVoicePromises.set(src, promise);
+  return promise;
+}
+
+function playRecordedVoiceBuffer(buffer, { volume = 1 } = {}) {
+  if (!buffer) return false;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    if (bgmGain) {
+      bgmGain.gain.cancelScheduledValues(now);
+      bgmGain.gain.setTargetAtTime(0.02, now, 0.02);
+      bgmGain.gain.setTargetAtTime(bgmMode === 'menu' ? 0.055 : 0.09, now + Math.min(1.8, buffer.duration + 0.1), 0.18);
+    }
+    const source = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    source.buffer = buffer;
+    gain.gain.setValueAtTime(volume, now);
+    source.connect(gain);
+    gain.connect(audioCtx.destination);
+    source.start(now);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function playRecordedVoice(src, { volume = 1 } = {}) {
+  const buffer = recordedVoiceBuffers.get(src);
+  if (buffer) return playRecordedVoiceBuffer(buffer, { volume });
+  loadRecordedVoice(src).then((loadedBuffer) => {
+    if (loadedBuffer) playRecordedVoiceBuffer(loadedBuffer, { volume });
+  });
+  return true;
+}
+
+function warmRecordedVoices() {
+  [...MOATARO_LINE_VOICES.map((line) => line.src), ...Object.values(VOICE_FILES)].forEach((src) => {
+    loadRecordedVoice(src);
+  });
+}
+
+function playVoiceCue(kind = 'shop') {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const now = audioCtx.currentTime;
+  if (bgmGain) {
+    bgmGain.gain.cancelScheduledValues(now);
+    bgmGain.gain.setTargetAtTime(0.018, now, 0.02);
+    bgmGain.gain.setTargetAtTime(0.09, now + 0.95, 0.18);
+  }
+  const notes = kind === 'thanks'
+    ? [660, 740, 830, 660, 520]
+    : kind === 'bad'
+      ? [210, 160, 130, 170]
+      : [440, 520, 610, 520, 690, 560];
+  notes.forEach((freq, index) => {
+    setTimeout(() => playVoiceSyllable(freq, kind === 'bad' ? 0.16 : 0.13), index * 105);
+  });
+}
+
+function playVoiceSyllable(frequency, duration) {
+  const osc = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc2.type = 'square';
+  osc.frequency.value = frequency;
+  osc2.frequency.value = frequency * 1.01;
+  filter.type = 'bandpass';
+  filter.frequency.value = frequency * 2.1;
+  filter.Q.value = 7;
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  osc.connect(filter);
+  osc2.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(audioCtx.currentTime);
+  osc2.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + duration + 0.02);
+  osc2.stop(audioCtx.currentTime + duration + 0.02);
 }
 
 function scheduleBgmStep() {
@@ -1010,6 +2196,67 @@ function firePlayerShot() {
   energy -= 8;
 }
 
+function activateBlueHelper() {
+  if (currentStage !== 3 || helperTimer > 0 || helperCooldown > 0 || gameOver || !gameStarted) return;
+  const forward = playerVelocity.lengthSq() > 0.2
+    ? playerVelocity.clone().normalize()
+    : new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+  blueHelper.position.copy(moai.position).add(forward.multiplyScalar(8));
+  blueHelper.position.x = THREE.MathUtils.clamp(blueHelper.position.x, -WORLD_SIZE, WORLD_SIZE);
+  blueHelper.position.z = THREE.MathUtils.clamp(blueHelper.position.z, -WORLD_SIZE, WORLD_SIZE);
+  setEntityGroundHeight(blueHelper);
+  helperVelocity.copy(forward.multiplyScalar(13));
+  helperTurnTimer = 0.25;
+  blueHelper.visible = true;
+  helperTimer = 9.5;
+  helperCooldown = 24;
+  screenShake = 0.25;
+  blip(520, 0.12, 0.13, 'triangle');
+  setTimeout(() => blip(780, 0.14, 0.1, 'triangle'), 110);
+}
+
+function updateBlueHelper(dt) {
+  helperCooldown = Math.max(0, helperCooldown - dt);
+  if (helperTimer <= 0) {
+    blueHelper.visible = false;
+    return;
+  }
+  helperTimer = Math.max(0, helperTimer - dt);
+  helperTurnTimer -= dt;
+
+  if (helperTurnTimer <= 0) {
+    const nearest = getNearestAuthor();
+    const away = blueHelper.position.clone().sub(nearest.position).setY(0);
+    if (away.lengthSq() < 0.1) away.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+    away.normalize();
+    const side = new THREE.Vector3(-away.z, 0, away.x).multiplyScalar(THREE.MathUtils.randFloatSpread(0.9));
+    const roam = new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.55), 0, THREE.MathUtils.randFloatSpread(0.55));
+    const targetDir = away.add(side).add(roam).normalize();
+    helperVelocity.lerp(targetDir.multiplyScalar(15.5), 0.82);
+    helperTurnTimer = THREE.MathUtils.randFloat(0.55, 1.2);
+  }
+
+  if (Math.abs(blueHelper.position.x) > WORLD_SIZE - 8) helperVelocity.x *= -0.9;
+  if (Math.abs(blueHelper.position.z) > WORLD_SIZE - 8) helperVelocity.z *= -0.9;
+  blueHelper.position.addScaledVector(helperVelocity, dt);
+  blueHelper.position.x = THREE.MathUtils.clamp(blueHelper.position.x, -WORLD_SIZE + 4, WORLD_SIZE - 4);
+  blueHelper.position.z = THREE.MathUtils.clamp(blueHelper.position.z, -WORLD_SIZE + 4, WORLD_SIZE - 4);
+  resolveObstacleCollisions(blueHelper, 0.9, () => helperVelocity.multiplyScalar(-0.45));
+  resolveCeleryCollisions(blueHelper, 0.9, () => helperVelocity.multiplyScalar(-0.45));
+  setEntityGroundHeight(blueHelper);
+  if (helperVelocity.lengthSq() > 0.1) {
+    blueHelper.rotation.y = THREE.MathUtils.lerp(blueHelper.rotation.y, Math.atan2(helperVelocity.x, helperVelocity.z), 1 - Math.pow(0.0005, dt));
+  }
+  blueHelper.rotation.z = Math.sin(performance.now() * 0.018) * 0.07;
+  blueHelper.children.forEach((child, index) => {
+    if (index === blueHelper.children.length - 1) child.rotation.z += dt * 5.2;
+  });
+  if (helperTimer <= 0) {
+    blueHelper.visible = false;
+    helperVelocity.set(0, 0, 0);
+  }
+}
+
 function movePlayer(dt) {
   const xInput = Number(keys.right) - Number(keys.left) + mobileMove.x;
   const zInput = Number(keys.forward) - Number(keys.backward) + mobileMove.z;
@@ -1040,15 +2287,59 @@ function movePlayer(dt) {
   resolvePlayerObstacleCollisions();
   moai.position.x = THREE.MathUtils.clamp(moai.position.x, -WORLD_SIZE, WORLD_SIZE);
   moai.position.z = THREE.MathUtils.clamp(moai.position.z, -WORLD_SIZE, WORLD_SIZE);
+  setEntityGroundHeight(moai);
 }
 
 function updateAuthors(dt) {
   getActiveAuthors().forEach((enemy, index) => updateAuthor(dt, enemy, index));
 }
 
+function isInMoataroServiceZone() {
+  if (currentStage !== 4 || !gameStarted || gameOver) return false;
+  const dx = moai.position.x - MOATARO_SERVICE.center.x;
+  const dz = moai.position.z - MOATARO_SERVICE.center.z;
+  return Math.hypot(dx, dz) < MOATARO_SERVICE.radius;
+}
+
+function isMoataroClerk(enemy, index) {
+  return moataroServiceActive && currentStage === 4 && index === 0 && enemy.userData.ai?.active;
+}
+
+function isMoataroSafeAuthor(enemy, index) {
+  return currentStage === 4 && index === 0 && enemy.userData.ai?.active && (moataroServiceActive || moataroClerkSafeTimer > 0);
+}
+
+function updateMoataroClerk(enemy, dt) {
+  enemy.userData.hasYogurt = false;
+  enemy.userData.yogurtTime = 0;
+  if (enemy.userData.yogurtIcon) enemy.userData.yogurtIcon.visible = false;
+  if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+  if (enemy.userData.serviceLabel) enemy.userData.serviceLabel.visible = true;
+  const boothToPlayer = moai.position.clone().sub(MOATARO_SERVICE.center).setY(0);
+  if (boothToPlayer.lengthSq() < 0.01) boothToPlayer.set(0, 0, -1);
+  const target = moai.position.clone().add(boothToPlayer.normalize().multiplyScalar(2.2));
+  target.y = getGroundHeight(target.x, target.z);
+  const toPlayer = target.sub(enemy.position);
+  if (toPlayer.lengthSq() > 0.22) {
+    enemy.position.addScaledVector(toPlayer.normalize(), 34 * dt);
+  }
+  enemy.lookAt(moai.position.x, enemy.position.y + 1.7, moai.position.z);
+}
+
 function updateAuthor(dt, enemy = author, index = 0) {
   if (!enemy.userData.ai?.active) return;
   const safeZone = getCurrentSafetyZone();
+  updateAuthorYogurtTime(enemy, dt);
+  enemy.userData.contactFxCooldown = Math.max(0, (enemy.userData.contactFxCooldown || 0) - dt);
+  if (enemy.userData.downTimer > 0) {
+    enemy.userData.downTimer = Math.max(0, enemy.userData.downTimer - dt);
+    if (enemy.userData.downLabel) enemy.userData.downLabel.visible = enemy.userData.downTimer > 0;
+    enemy.rotation.z = Math.sin(performance.now() * 0.012 + index) * 0.16;
+    enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+    if (enemy.userData.downTimer <= 0 && enemy.userData.downLabel) enemy.userData.downLabel.visible = false;
+    return;
+  }
+  if (enemy.userData.downLabel) enemy.userData.downLabel.visible = false;
   const targetPoint = getAuthorTarget(enemy, index);
   const toTarget = targetPoint.clone().sub(enemy.position);
   const toPlayer = moai.position.clone().sub(enemy.position);
@@ -1060,13 +2351,35 @@ function updateAuthor(dt, enemy = author, index = 0) {
   const brain = enemy.userData.ai;
   const speed = AUTHOR_SPEED + getStageConfig().authorBoost + sealBoost + nearBoost * 2.4 + teleportAlertBoost + brain.speedBias;
   const wobble = Math.sin(performance.now() * 0.004 + brain.phase) * 0.34;
+  const fleeingWithYogurt = currentStage === 4 && enemy.userData.hasYogurt && enemy.userData.yogurtTime <= 0;
   let chaseDir = direction
     .clone()
     .add(new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(wobble))
     .add(getSeparationVector(enemy).multiplyScalar(0.72))
     .normalize();
 
-  if (safeZone) {
+  if (isMoataroClerk(enemy, index)) {
+    updateMoataroClerk(enemy, dt);
+  } else if (currentStage === 4 && enemy.userData.hasYogurt && enemy.userData.yogurtTime > 0) {
+    enemy.userData.yogurtLabel.visible = true;
+    enemy.userData.yogurtIcon.visible = true;
+  } else if (fleeingWithYogurt) {
+    const fleeDir = enemy.position.clone().sub(moai.position).setY(0);
+    if (fleeDir.lengthSq() < 0.01) fleeDir.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+    const edgePressure = Math.max(Math.abs(enemy.position.x), Math.abs(enemy.position.z)) / WORLD_SIZE;
+    const centerPull = enemy.position.clone().multiplyScalar(-1).setY(0).normalize().multiplyScalar(Math.max(0, edgePressure - 0.72) * 1.4);
+    const roamAngle = performance.now() * 0.0018 + brain.phase * 1.9 + Math.sin(performance.now() * 0.0026 + brain.phase) * 1.25;
+    const roam = new THREE.Vector3(Math.cos(roamAngle), 0, Math.sin(roamAngle)).multiplyScalar(0.52);
+    const sideStep = new THREE.Vector3(-fleeDir.z, 0, fleeDir.x).normalize().multiplyScalar(0.45 + Math.abs(wobble) * 0.9);
+    const fleeMove = fleeDir.normalize()
+      .add(centerPull)
+      .add(sideStep)
+      .add(roam)
+      .add(getSeparationVector(enemy).multiplyScalar(0.35))
+      .normalize();
+    const fleeSpeed = PLAYER_SPEED * 0.9 + Math.max(0, brain.speedBias) * 0.45;
+    enemy.position.addScaledVector(fleeMove, fleeSpeed * dt);
+  } else if (safeZone) {
     const fromZone = enemy.position.clone().sub(safeZone.center);
     const zoneDistance = fromZone.length();
     if (zoneDistance < safeZone.radius + 4.2) {
@@ -1083,7 +2396,11 @@ function updateAuthor(dt, enemy = author, index = 0) {
     enemy.position.addScaledVector(chaseDir, speed * dt);
   }
 
-  if (!safeZone && distance < 2.15) {
+  if (!safeZone && distance < 2.15 && !isMoataroSafeAuthor(enemy, index)) {
+    if (currentStage === 4) {
+      handleStageFourAuthorContact(enemy);
+      return;
+    }
     playerHealth = 0;
     screenShake = 0.7;
     finishGame(false);
@@ -1092,9 +2409,14 @@ function updateAuthor(dt, enemy = author, index = 0) {
 
   enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
   enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
-  resolveObstacleCollisions(enemy, 1.05);
+  if (!isMoataroClerk(enemy, index)) {
+    resolveObstacleCollisions(enemy, 1.05);
+    resolveRegularCustomerCollisions(enemy, 1.05);
+    resolveCeleryCollisions(enemy, 1.05);
+  }
   enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
   enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
+  setEntityGroundHeight(enemy);
   enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
   enemy.children.forEach((child, childIndex) => {
     child.rotation.z += childIndex === 1 ? dt * (1.5 + index * 0.22) : 0;
@@ -1109,7 +2431,385 @@ function updateAuthor(dt, enemy = author, index = 0) {
   panicTimer = Math.max(panicTimer, !safeZone && distance < 12 ? 0.35 : 0);
 }
 
+function updateAuthorYogurtTime(enemy, dt) {
+  if (currentStage !== 4) {
+    if (enemy.userData.yogurtIcon) enemy.userData.yogurtIcon.visible = false;
+    if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+    return;
+  }
+  if (!enemy.userData.hasYogurt) {
+    if (enemy.userData.yogurtIcon) enemy.userData.yogurtIcon.visible = false;
+    if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+    return;
+  }
+
+  enemy.userData.yogurtIcon.visible = true;
+  if (enemy.userData.yogurtTime > 0) {
+    enemy.userData.yogurtTime = Math.max(0, enemy.userData.yogurtTime - dt);
+    enemy.userData.yogurtLabel.visible = true;
+    if (enemy.userData.yogurtTime <= 0) {
+      enemy.userData.yogurtCooldown = THREE.MathUtils.randFloat(5.0, 9.5);
+      enemy.userData.yogurtLabel.visible = false;
+    }
+    return;
+  }
+
+  enemy.userData.yogurtCooldown = Math.max(0, enemy.userData.yogurtCooldown - dt);
+  enemy.userData.yogurtLabel.visible = false;
+  if (enemy.userData.yogurtCooldown <= 0) {
+    enemy.userData.yogurtTime = THREE.MathUtils.randFloat(2.2, 3.4);
+    enemy.userData.yogurtCooldown = 99;
+    if (yogurtTimeVoiceCooldown <= 0 && !playRecordedVoice(VOICE_FILES.yogurtTime, { volume: 0.96 })) {
+      blip(740, 0.1, 0.11, 'triangle');
+      setTimeout(() => blip(980, 0.12, 0.1, 'triangle'), 120);
+    }
+    yogurtTimeVoiceCooldown = 1.2;
+  }
+}
+
+function handleStageFourAuthorContact(enemy) {
+  if (moataroInvincibleTimer > 0) {
+    spawnAuthorContactEffect(enemy, 0x77f4ff);
+    return;
+  }
+
+  if (enemy.userData.hasYogurt && enemy.userData.yogurtTime > 0) {
+    spawnAuthorContactEffect(enemy, 0x77f4ff);
+    enemy.userData.hasYogurt = false;
+    enemy.userData.yogurtTime = 0;
+    enemy.userData.yogurtCooldown = 999;
+    enemy.userData.yogurtIcon.visible = false;
+    enemy.userData.yogurtLabel.visible = false;
+    crystals++;
+    totalSeals++;
+    stolenYogurts++;
+    energy = 100;
+    playerHitCooldown = 0.9;
+    playYogurtStolenVoice();
+    if (canOpenEscapeGate() && !escapeOpen) {
+      escapeOpen = true;
+      activateFinalSwarm();
+    }
+    return;
+  }
+
+  if (enemy.userData.hasYogurt) {
+    spawnAuthorContactEffect(enemy, 0xffd36a);
+    return;
+  }
+
+  if (playerHitCooldown > 0) return;
+  spawnAuthorContactEffect(enemy, 0xff5f7e);
+  crystals = Math.max(0, crystals - 1);
+  enemy.userData.hasYogurt = true;
+  enemy.userData.yogurtTime = 0;
+  enemy.userData.yogurtCooldown = THREE.MathUtils.randFloat(2.4, 5.2);
+  if (enemy.userData.yogurtIcon) enemy.userData.yogurtIcon.visible = true;
+  if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+  escapeOpen = canOpenEscapeGate();
+  playerHitCooldown = 1.35;
+  screenShake = 0.18;
+  blip(120, 0.18, 0.14, 'sawtooth');
+  if (crystals <= 0) finishGame(false);
+}
+
+function updateRegularCustomers(dt) {
+  if (currentStage !== 4 || !regularCustomers.length) return;
+  const time = performance.now() * 0.001;
+  regularCustomers.forEach((customer, index) => {
+    customer.userData.turnTimer -= dt;
+    if (customer.userData.turnTimer <= 0) {
+      customer.userData.walkAngle += THREE.MathUtils.randFloat(-1.25, 1.25);
+      customer.userData.turnTimer = THREE.MathUtils.randFloat(0.65, 1.9);
+    }
+
+    const centerPull = new THREE.Vector3(-customer.position.x, 0, -customer.position.z);
+    const edgePressure = Math.max(Math.abs(customer.position.x), Math.abs(customer.position.z)) / WORLD_SIZE;
+    const walkAngle = customer.userData.walkAngle + Math.sin(time * 0.95 + customer.userData.phase) * 0.62;
+    const move = new THREE.Vector3(Math.cos(walkAngle), 0, Math.sin(walkAngle));
+    if (moataroServiceActive) {
+      const toShop = MOATARO_SERVICE.center.clone().add(new THREE.Vector3(
+        Math.cos(index * 1.7) * 3.4,
+        0,
+        Math.sin(index * 1.7) * 3.4
+      )).sub(customer.position).setY(0);
+      if (toShop.lengthSq() > 0.2) move.add(toShop.normalize().multiplyScalar(1.25));
+    }
+    if (edgePressure > 0.76 && centerPull.lengthSq() > 0.01) {
+      move.add(centerPull.normalize().multiplyScalar((edgePressure - 0.76) * 2.0));
+    }
+    move.normalize();
+    const speed = (moataroServiceActive ? 3.15 : 2.35) + (index % 4) * 0.28;
+    customer.position.x += move.x * speed * dt;
+    customer.position.z += move.z * speed * dt;
+    customer.position.x = THREE.MathUtils.clamp(customer.position.x, -WORLD_SIZE + 6, WORLD_SIZE - 6);
+    customer.position.z = THREE.MathUtils.clamp(customer.position.z, -WORLD_SIZE + 6, WORLD_SIZE - 6);
+    resolveObstacleCollisions(customer, 0.65, () => {
+      customer.userData.walkAngle += Math.PI * 0.5;
+    });
+  });
+}
+
+function updateCeleryCustomers(dt) {
+  if (currentStage !== 4 || !celeryCustomers.length) return;
+  const time = performance.now() * 0.001;
+  celeryCustomers.forEach((celery, index) => {
+    celery.userData.hitCooldown = Math.max(0, (celery.userData.hitCooldown || 0) - dt);
+    celery.userData.turnTimer -= dt;
+    if (celery.userData.turnTimer <= 0) {
+      celery.userData.walkAngle += THREE.MathUtils.randFloat(-1.35, 1.35);
+      celery.userData.turnTimer = THREE.MathUtils.randFloat(0.6, 1.65);
+    }
+
+    const centerPull = new THREE.Vector3(-celery.position.x, 0, -celery.position.z);
+    const edgePressure = Math.max(Math.abs(celery.position.x), Math.abs(celery.position.z)) / WORLD_SIZE;
+    const roamDir = new THREE.Vector3(
+      Math.cos(celery.userData.walkAngle + Math.sin(time * 1.15 + celery.userData.phase) * 0.72),
+      0,
+      Math.sin(celery.userData.walkAngle + Math.cos(time * 0.95 + celery.userData.phase) * 0.72)
+    );
+    if (edgePressure > 0.72 && centerPull.lengthSq() > 0.01) {
+      roamDir.add(centerPull.normalize().multiplyScalar((edgePressure - 0.72) * 2.2));
+    }
+    roamDir.normalize();
+    celery.position.x += roamDir.x * (3.05 + (index % 4) * 0.28) * dt;
+    celery.position.z += roamDir.z * (3.05 + (index % 4) * 0.28) * dt;
+    celery.position.x = THREE.MathUtils.clamp(celery.position.x, -WORLD_SIZE + 7, WORLD_SIZE - 7);
+    celery.position.z = THREE.MathUtils.clamp(celery.position.z, -WORLD_SIZE + 7, WORLD_SIZE - 7);
+    resolveObstacleCollisions(celery, celery.userData.collisionRadius || 0.9, () => {
+      celery.userData.walkAngle += Math.PI * 0.55;
+    });
+
+    getActiveAuthors().forEach((enemy) => {
+      if (celery.userData.hitCooldown > 0 || enemy.userData.downTimer > 0) return;
+      const dx = celery.position.x - enemy.position.x;
+      const dz = celery.position.z - enemy.position.z;
+      if (Math.hypot(dx, dz) > 2.35) return;
+      if (enemy.userData.hasYogurt) {
+        dropAuthorYogurtFromCelery(enemy, celery);
+      } else {
+        downAuthorFromCelery(enemy, celery);
+      }
+      celery.userData.hitCooldown = 1.4;
+    });
+  });
+}
+
+function downAuthorFromCelery(enemy, celery) {
+  enemy.userData.downTimer = 3.0;
+  enemy.userData.yogurtTime = 0;
+  if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+  if (enemy.userData.downLabel) enemy.userData.downLabel.visible = true;
+  spawnContactEffectAt(enemy.position.clone().lerp(celery.position, 0.5), 0xbaff55);
+  playCeleryDisgustVoice();
+}
+
+function dropAuthorYogurtFromCelery(enemy, celery) {
+  enemy.userData.hasYogurt = false;
+  enemy.userData.yogurtTime = 0;
+  enemy.userData.yogurtCooldown = THREE.MathUtils.randFloat(4.0, 7.0);
+  if (enemy.userData.yogurtIcon) enemy.userData.yogurtIcon.visible = false;
+  if (enemy.userData.yogurtLabel) enemy.userData.yogurtLabel.visible = false;
+  addCrystal(enemy.position.x + THREE.MathUtils.randFloatSpread(1.2), enemy.position.z + THREE.MathUtils.randFloatSpread(1.2), true);
+  spawnContactEffectAt(enemy.position.clone().lerp(celery.position, 0.5), 0x9dff3f);
+  playCeleryDisgustVoice();
+}
+
+function playCeleryDisgustVoice() {
+  playVoiceCue('bad');
+  blip(180, 0.08, 0.12, 'sawtooth');
+  setTimeout(() => blip(150, 0.1, 0.1, 'sawtooth'), 90);
+  if (!playRecordedVoice(VOICE_FILES.bad, { volume: 0.95 })) {
+    speakText('まずい！', { rate: 1.15, pitch: 0.72, volume: 0.9 });
+  }
+}
+
+function speakMoataroLine() {
+  primeSpeech();
+  const line = MOATARO_LINE_VOICES[Math.floor(Math.random() * MOATARO_LINE_VOICES.length)];
+  moataroServiceLine = line.text;
+  moataroServiceVoiceSrc = line.src;
+  if (hud.shopLine) hud.shopLine.textContent = 'おすわりモアイを購入しますか？';
+  const clerk = authors[0];
+  if (clerk?.userData.serviceLabel) {
+    setTextSprite(clerk.userData.serviceLabel, moataroServiceLine, '#fff6cf', 24);
+    clerk.userData.serviceLabel.visible = true;
+  }
+  if (!playRecordedVoice(moataroServiceVoiceSrc)) {
+    speakText(moataroServiceLine, { rate: 1.05, pitch: 0.92, volume: 0.95 });
+  }
+}
+
+function updateMoataroShopDialog() {
+  if (!hud.shop) return;
+  const shouldShow = moataroServiceActive && !moataroPromptDismissed;
+  hud.shop.style.display = shouldShow ? 'block' : 'none';
+  if (hud.buyMoai) hud.buyMoai.style.display = moataroMoaiPurchased ? 'none' : '';
+  if (hud.replayLine) hud.replayLine.style.display = '';
+  if (hud.viewCatalog) hud.viewCatalog.style.display = '';
+  if (hud.skipMoai) hud.skipMoai.style.display = '';
+}
+
+function updateMoataroService(dt) {
+  const active = isInMoataroServiceZone();
+  if (active && !moataroServiceActive) {
+    moataroServiceActive = true;
+    moataroPromptDismissed = false;
+    moataroSpeechTimer = 0;
+    speakMoataroLine();
+    updateMoataroShopDialog();
+  } else if (!active && moataroServiceActive) {
+    moataroServiceActive = false;
+    moataroPromptDismissed = false;
+    updateMoataroShopDialog();
+    if (authors[0]?.userData.serviceLabel) authors[0].userData.serviceLabel.visible = false;
+  }
+
+  if (!moataroServiceActive) {
+    updatePetMoai(dt);
+    return;
+  }
+
+  moataroSpeechTimer -= dt;
+  if (moataroSpeechTimer <= 0) {
+    speakMoataroLine();
+    moataroSpeechTimer = THREE.MathUtils.randFloat(5.0, 8.0);
+  }
+
+  updateMoataroShopDialog();
+  updatePetMoai(dt);
+}
+
+function buyMoataroMoai() {
+  if (moataroMoaiPurchased) return;
+  moataroMoaiPurchased = true;
+  moataroInvincibleTimer = 3.0;
+  moataroClerkSafeTimer = 7.0;
+  moataroPromptDismissed = true;
+  petMoai.visible = true;
+  petMoai.position.copy(moai.position).add(new THREE.Vector3(0, 0, 3.2));
+  updateMoataroShopDialog();
+  showMoataroThanks();
+  blip(880, 0.12, 0.12, 'triangle');
+  setTimeout(() => blip(1320, 0.16, 0.1, 'triangle'), 120);
+}
+
+function openCatalogPause() {
+  gamePaused = true;
+  stopMobileMove();
+  keys.forward = false;
+  keys.backward = false;
+  keys.left = false;
+  keys.right = false;
+  keys.fire = false;
+  if (hud.shop) hud.shop.style.display = 'none';
+  if (hud.catalogFrame && !hud.catalogFrame.src) {
+    hud.catalogFrame.src = 'catalog.html?v=20260526_1';
+  }
+  if (hud.catalogOverlay) hud.catalogOverlay.style.display = 'block';
+  if (bgmGain) bgmGain.gain.setTargetAtTime(0.018, audioCtx.currentTime, 0.08);
+}
+
+function closeCatalogPause() {
+  gamePaused = false;
+  if (hud.catalogOverlay) hud.catalogOverlay.style.display = 'none';
+  if (bgmGain) bgmGain.gain.setTargetAtTime(0.085, audioCtx.currentTime, 0.14);
+}
+
+function showMoataroThanks() {
+  primeSpeech();
+  const message = 'ありがとうございました';
+  const clerk = authors[0];
+  if (clerk?.userData.serviceLabel) {
+    setTextSprite(clerk.userData.serviceLabel, message, '#fff6cf', 26);
+    clerk.userData.serviceLabel.visible = true;
+  }
+  if (!playRecordedVoice(VOICE_FILES.thanks)) {
+    speakText(message, { rate: 1.05, pitch: 0.95, volume: 0.95 });
+  }
+}
+
+function updatePetMoai(dt) {
+  if (!moataroMoaiPurchased) {
+    petMoai.visible = false;
+    return;
+  }
+  petMoai.visible = true;
+  const behind = moai.position.clone().add(new THREE.Vector3(Math.sin(cameraYaw) * 3.1, 0, Math.cos(cameraYaw) * 3.1));
+  behind.y = getGroundHeight(behind.x, behind.z);
+  petMoai.position.lerp(behind, 1 - Math.pow(0.001, dt));
+  petMoai.children.forEach((child) => {
+    if (child.userData.faceCamera) child.lookAt(camera.position);
+  });
+}
+
+function spawnAuthorContactEffect(enemy, color) {
+  if ((enemy.userData.contactFxCooldown || 0) > 0) return;
+  enemy.userData.contactFxCooldown = 0.55;
+  spawnContactEffectAt(moai.position.clone().lerp(enemy.position, 0.5), color);
+}
+
+function spawnContactEffectAt(position, color) {
+  const group = new THREE.Group();
+  group.position.set(position.x, getGroundHeight(position.x, position.z) + 0.08, position.z);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.05, 0.055, 8, 32),
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.3,
+      transparent: true,
+      opacity: 0.86,
+      roughness: 0.25,
+    })
+  );
+  ring.rotation.x = Math.PI / 2;
+  group.add(ring);
+
+  const flash = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.4, 1.4),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.58,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  flash.position.y = 1.6;
+  flash.userData.faceCamera = true;
+  group.add(flash);
+
+  group.userData.life = 0.34;
+  group.userData.maxLife = 0.34;
+  contactEffects.push(group);
+  world.add(group);
+}
+
+function updateContactEffects(dt) {
+  for (let i = contactEffects.length - 1; i >= 0; i--) {
+    const effect = contactEffects[i];
+    effect.userData.life -= dt;
+    const t = Math.max(0, effect.userData.life / effect.userData.maxLife);
+    effect.scale.setScalar(1 + (1 - t) * 1.65);
+    effect.children.forEach((child) => {
+      if (child.userData.faceCamera) child.lookAt(camera.position);
+      if (child.material && 'opacity' in child.material) child.material.opacity = Math.min(child.material.opacity, t * 0.86);
+    });
+    if (effect.userData.life <= 0) {
+      world.remove(effect);
+      contactEffects.splice(i, 1);
+    }
+  }
+}
+
 function getAuthorTarget(enemy, activeIndex) {
+  if (currentStage === 3 && helperTimer > 0 && blueHelper.visible) {
+    const brain = enemy.userData.ai || createAuthorBrain(activeIndex);
+    const angle = performance.now() * 0.0015 + brain.phase;
+    return blueHelper.position.clone().add(new THREE.Vector3(Math.cos(angle) * 3.2, 0, Math.sin(angle) * 3.2));
+  }
   const brain = enemy.userData.ai || createAuthorBrain(activeIndex);
   const velocity = playerVelocity.lengthSq() > 0.1
     ? playerVelocity.clone().normalize()
@@ -1197,17 +2897,19 @@ function removeShot(shots, index) {
 function updatePickups(dt) {
   for (let i = pickupCrystals.length - 1; i >= 0; i--) {
     const crystal = pickupCrystals[i];
-    crystal.rotation.y += dt * 2.7;
+    crystal.lookAt(camera.position.x, crystal.position.y, camera.position.z);
+    crystal.rotation.z = Math.sin(performance.now() * 0.004 + i) * 0.08;
     crystal.position.y = crystal.userData.baseY + Math.sin(performance.now() * 0.003 + i) * 0.18;
     if (crystal.position.distanceTo(moai.position) < 1.8) {
       crystals++;
       totalSeals++;
+      if (currentStage === 4 && crystal.userData.fromAuthor) stolenYogurts++;
       energy = 100;
       playerHealth = Math.min(100, playerHealth + 9);
       world.remove(crystal);
       pickupCrystals.splice(i, 1);
       blip(980, 0.16, 0.1, 'triangle');
-      if (crystals >= getSealsRequired() && !escapeOpen) {
+      if (canOpenEscapeGate() && !escapeOpen) {
         escapeOpen = true;
         activateFinalSwarm();
         blip(1240, 0.35, 0.12, 'triangle');
@@ -1340,35 +3042,52 @@ function finishGame(won) {
       <h1>${title}</h1>
       <p class="tap-msg">${body}</p>
       <div class="mission-readout">
-        <span>ステージ ${currentStage}/${STAGES.length}</span>
-        <span>封印石 ${totalSeals}</span>
+        <span>ステージ 4 (HMJ HALL)</span>
+        <span>ヨーグルト ${crystals}</span>
         <span>スタミナ ${Math.max(0, Math.round(energy))}</span>
       </div>
       <div class="stage-select">
-        <button class="stage-button" type="button" data-stage="1">STAGE 1</button>
-        <button class="stage-button stage-night" type="button" data-stage="2">STAGE 2</button>
+        <button class="stage-button" type="button" data-stage="4" style="font-size: 16px; padding: 14px 28px; min-width: 180px;">もう一度挑戦<br><span>STAGE 4: HMJ HALL</span></button>
       </div>
     </div>
   `;
   startBgm('menu');
 }
 
-function resetGame(stage = 1) {
+function resetGame(stage = 4) {
   gameStarted = true;
   gameOver = false;
   victory = false;
   playerHealth = 100;
   authorHealth = 140;
   energy = 100;
-  crystals = 0;
-  totalSeals = 0;
   currentStage = THREE.MathUtils.clamp(Number(stage) || 1, 1, STAGES.length);
+  crystals = currentStage === 4 ? 2 : 0;
+  totalSeals = currentStage === 4 ? 2 : 0;
+  stolenYogurts = 0;
   escapeOpen = false;
   finalSwarmActive = false;
   panicTimer = 0;
   stageTransitionTimer = 0;
   teleportCooldown = 0;
   teleportAlertTimer = 0;
+  playerHitCooldown = 0;
+  helperTimer = 0;
+  helperCooldown = 0;
+  helperTurnTimer = 0;
+  helperVelocity.set(0, 0, 0);
+  blueHelper.visible = false;
+  moataroServiceActive = false;
+  moataroSpeechTimer = 0;
+  moataroPromptDismissed = false;
+  moataroMoaiPurchased = false;
+  moataroInvincibleTimer = 0;
+  moataroClerkSafeTimer = 0;
+  yogurtTimeVoiceCooldown = 0;
+  hudUpdateTimer = 0;
+  petMoai.visible = false;
+  if (hud.shop) hud.shop.style.display = 'none';
+  if (authors[0]?.userData.serviceLabel) authors[0].userData.serviceLabel.visible = false;
   fireCooldown = 0;
   authorFireCooldown = 1.0;
   authorTauntTimer = 1.4;
@@ -1377,6 +3096,7 @@ function resetGame(stage = 1) {
   cameraPitch = 0.46;
   cameraDistance = 10.5;
   playerVelocity.set(0, 0, 0);
+  helperVelocity.set(0, 0, 0);
   stopMobileMove();
 
   playerShots.splice(0).forEach((shot) => scene.remove(shot));
@@ -1385,6 +3105,7 @@ function resetGame(stage = 1) {
 
   createWorld();
   moai.position.fromArray(getStageConfig().start);
+  setEntityGroundHeight(moai);
   moai.rotation.set(0, 0, 0);
   resetAuthorPositions();
 
@@ -1397,23 +3118,32 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.033);
 
-  if (gameStarted && !gameOver) {
+  if (gameStarted && !gameOver && !gamePaused) {
     fireCooldown = Math.max(0, fireCooldown - dt);
     cameraYaw += (Number(keys.lookLeft) - Number(keys.lookRight)) * 2.8 * dt;
     panicTimer = Math.max(0, panicTimer - dt);
     stageTransitionTimer = Math.max(0, stageTransitionTimer - dt);
     teleportAlertTimer = Math.max(0, teleportAlertTimer - dt);
+    playerHitCooldown = Math.max(0, playerHitCooldown - dt);
+    moataroInvincibleTimer = Math.max(0, moataroInvincibleTimer - dt);
+    moataroClerkSafeTimer = Math.max(0, moataroClerkSafeTimer - dt);
+    yogurtTimeVoiceCooldown = Math.max(0, yogurtTimeVoiceCooldown - dt);
     movePlayer(dt);
+    updateBlueHelper(dt);
     updateAuthors(dt);
+    updateRegularCustomers(dt);
+    updateCeleryCustomers(dt);
+    updateMoataroService(dt);
     updateShots(dt);
     updatePickups(dt);
     updateTeleportRings(dt);
+    updateContactEffects(dt);
   }
 
-  props.forEach((prop, i) => {
-    if (i % 13 === 0) prop.rotation.y += dt * 0.08;
+  props.forEach((prop) => {
     if (prop.userData.slowSpin) prop.rotation.y += prop.userData.slowSpin * dt;
-    if (prop.userData.faceCamera) prop.lookAt(camera.position);
+    if (prop.userData.slowBob !== undefined) prop.position.y = prop.userData.baseY + Math.sin(performance.now() * 0.002 + prop.userData.slowBob) * 0.08;
+    if (prop.userData.faceCamera && !prop.isSprite) prop.lookAt(camera.position);
     if (prop.userData.pulse && prop.material) {
       const glow = 0.75 + Math.sin(performance.now() * 0.0028 + prop.userData.pulse) * 0.35;
       if ('opacity' in prop.material) prop.material.opacity = THREE.MathUtils.clamp(glow * 0.22, 0.08, 0.82);
@@ -1422,7 +3152,11 @@ function animate() {
   });
 
   updateCamera(dt);
-  setHud();
+  hudUpdateTimer -= dt;
+  if (hudUpdateTimer <= 0) {
+    setHud();
+    hudUpdateTimer = IS_MOBILE_DEVICE ? 0.12 : 0.08;
+  }
   renderer.render(scene, camera);
 }
 
@@ -1432,6 +3166,8 @@ function bindKey(code, pressed) {
   if (code === 'KeyA' || code === 'ArrowLeft') keys.left = pressed;
   if (code === 'KeyD' || code === 'ArrowRight') keys.right = pressed;
   if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyJ' || code === 'KeyK') keys.fire = pressed;
+  if (code === 'KeyH' || code === 'KeyL') keys.help = pressed;
+  if (pressed && (code === 'KeyH' || code === 'KeyL')) activateBlueHelper();
   if (code === 'KeyQ') keys.lookLeft = pressed;
   if (code === 'KeyE') keys.lookRight = pressed;
 }
@@ -1469,6 +3205,7 @@ function stopMobileMove() {
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
+  primeSpeech();
   if (isTouchUiTarget(event) || !gameStarted || gameOver) return;
   event.preventDefault();
   renderer.domElement.setPointerCapture?.(event.pointerId);
@@ -1544,12 +3281,70 @@ function setupTouchButton(button, keyName) {
 
 setupTouchButton(hud.fire, 'fire');
 
+if (hud.help) {
+  const helpStart = (event) => {
+    event.preventDefault();
+    activateBlueHelper();
+  };
+  hud.help.addEventListener('touchstart', helpStart, { passive: false });
+  hud.help.addEventListener('mousedown', helpStart);
+}
+
+if (hud.buyMoai) {
+  hud.buyMoai.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    primeSpeech();
+    buyMoataroMoai();
+  });
+}
+
+if (hud.replayLine) {
+  hud.replayLine.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    primeSpeech();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (!playRecordedVoice(moataroServiceVoiceSrc)) {
+      speakText(moataroServiceLine, { rate: 1.05, pitch: 0.92, volume: 1 });
+    }
+  });
+}
+
+if (hud.viewCatalog) {
+  hud.viewCatalog.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openCatalogPause();
+  });
+}
+
+if (hud.catalogClose) {
+  hud.catalogClose.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeCatalogPause();
+  });
+}
+
+if (hud.skipMoai) {
+  hud.skipMoai.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    moataroPromptDismissed = true;
+    moataroClerkSafeTimer = 4.0;
+    updateMoataroShopDialog();
+  });
+}
+
 if (hud.start) {
-  hud.start.addEventListener('pointerdown', () => {
+  hud.start.addEventListener('pointerdown', (event) => {
     if (gameStarted && !gameOver) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    primeSpeech();
+    warmRecordedVoices();
     startBgm('menu');
-  }, { passive: true });
+  });
 
   hud.start.addEventListener('click', (event) => {
     const stageButton = event.target.closest?.('[data-stage]');
@@ -1565,9 +3360,12 @@ window.addEventListener('resize', () => {
 });
 
 loadMoaiModel();
+createBlueHelperModel();
+createPetMoaiModel();
 createAuthor();
 createWorld();
 moai.position.set(0, 0, 28);
+setEntityGroundHeight(moai);
 moai.rotation.y = 0;
 resetAuthorPositions();
 updateCamera(1);

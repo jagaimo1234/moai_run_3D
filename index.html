@@ -27,22 +27,222 @@
             position: absolute;
             top: env(safe-area-inset-top, 20px);
             left: 20px;
-            right: 20px;
+            right: auto;
             pointer-events: none;
             z-index: 10;
         }
 
         #ui-text {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            padding: 10px 14px;
+            background: linear-gradient(135deg, rgba(4, 10, 15, 0.88), rgba(17, 22, 28, 0.72));
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 216, 122, 0.34);
+            padding: 11px 12px 10px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             display: inline-block;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            max-width: min(680px, calc(100vw - 40px));
-            line-height: 1.45;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255,255,255,0.08);
+            width: min(430px, calc(100vw - 132px));
+            line-height: 1.35;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.85);
+        }
+
+        .hud-main {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .hud-title {
+            color: #fff6cf;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hud-pill {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 6px;
+            background: rgba(119, 244, 255, 0.15);
+            border: 1px solid rgba(119, 244, 255, 0.25);
+            color: #e8feff;
+            white-space: nowrap;
+        }
+
+        .hud-danger {
+            background: rgba(255, 79, 99, 0.18);
+            border-color: rgba(255, 118, 136, 0.36);
+            color: #ffd9df;
+        }
+
+        .hud-yogurt-panel {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 9px;
+            align-items: center;
+            padding: 9px;
+            border-radius: 8px;
+            background: rgba(255, 246, 210, 0.09);
+            border: 1px solid rgba(255, 216, 122, 0.22);
+        }
+
+        .hud-yogurt-count {
+            min-width: 76px;
+            text-align: center;
+            color: #fff6cf;
+            font-weight: 900;
+            font-size: 24px;
+        }
+
+        .hud-yogurt-count small {
+            display: block;
+            color: rgba(255,255,255,0.66);
+            font-size: 9px;
+            font-weight: 800;
+        }
+
+        .hud-meter {
+            height: 9px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.13);
+            border: 1px solid rgba(255,255,255,0.14);
+        }
+
+        .hud-meter-fill {
+            height: 100%;
+            width: var(--hud-progress, 0%);
+            border-radius: inherit;
+            background: linear-gradient(90deg, #77f4ff, #fff07a, #ff8a63);
+            box-shadow: 0 0 14px rgba(255, 240, 122, 0.42);
+        }
+
+        .hud-steps {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .hud-step {
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.66);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .hud-step.done {
+            background: rgba(119, 244, 255, 0.16);
+            color: #dffcff;
+        }
+
+        .hud-step.warn {
+            background: rgba(255, 200, 87, 0.16);
+            color: #ffe4a0;
+        }
+
+        .hud-goal {
+            margin-top: 7px;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .hud-controls {
+            margin-top: 5px;
+            color: rgba(255,255,255,0.58);
+            font-size: 10px;
+        }
+
+        #shop-dialog {
+            position: absolute;
+            left: 50%;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+            transform: translateX(-50%);
+            z-index: 18;
+            display: none;
+            width: min(420px, calc(100vw - 28px));
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(7, 18, 24, 0.88);
+            border: 1px solid rgba(255, 216, 122, 0.42);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.48);
+            backdrop-filter: blur(16px);
+            pointer-events: auto;
+        }
+
+        .shop-line {
+            color: #fff6cf;
+            font-weight: 900;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-shadow: 0 1px 8px rgba(0,0,0,0.9);
+        }
+
+        .shop-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .shop-actions button {
+            min-height: 42px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.18);
+            font-family: 'Outfit', 'DotGothic16', sans-serif;
+            font-weight: 900;
+            color: #101a20;
+            background: linear-gradient(135deg, #fff07a, #ffba63);
+            cursor: pointer;
+        }
+
+        .shop-actions button.secondary {
+            color: #e8feff;
+            background: rgba(119, 244, 255, 0.12);
+            border-color: rgba(119, 244, 255, 0.3);
+        }
+
+        .shop-actions button.wide {
+            grid-column: span 2;
+        }
+
+        #catalog-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            display: none;
+            background: rgba(4, 9, 13, 0.9);
+            pointer-events: auto;
+        }
+
+        #catalog-frame {
+            position: absolute;
+            inset: max(env(safe-area-inset-top, 10px), 10px) 10px max(env(safe-area-inset-bottom, 10px), 10px);
+            width: calc(100% - 20px);
+            height: calc(100% - max(env(safe-area-inset-top, 10px), 10px) - max(env(safe-area-inset-bottom, 10px), 10px));
+            border: 1px solid rgba(255, 216, 122, 0.4);
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        #catalog-close {
+            position: absolute;
+            top: max(env(safe-area-inset-top, 14px), 14px);
+            right: 18px;
+            z-index: 42;
+            border: 1px solid rgba(255,255,255,0.28);
+            border-radius: 8px;
+            padding: 9px 14px;
+            font-family: 'Outfit', 'DotGothic16', sans-serif;
+            font-weight: 900;
+            color: #101a20;
+            background: #fff07a;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+            cursor: pointer;
         }
 
         #controls {
@@ -51,6 +251,9 @@
             bottom: env(safe-area-inset-bottom, 28px);
             z-index: 15;
             pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
         }
 
         .btn-joystick {
@@ -78,6 +281,19 @@
             transform: scale(0.9);
             background: rgba(255, 95, 69, 0.28);
             border-color: var(--accent-color);
+        }
+
+        #btn-help {
+            display: none;
+            margin-bottom: 10px;
+            background: rgba(74, 183, 255, 0.2);
+            border-color: rgba(119, 244, 255, 0.72);
+            color: #dcfbff;
+        }
+
+        #btn-help.disabled {
+            opacity: 0.5;
+            filter: grayscale(0.35);
         }
 
         #mobile-stick {
@@ -368,9 +584,54 @@
                 font-size: 13px;
             }
             #ui-text {
-                font-size: 11px;
-                max-width: calc(100vw - 118px);
-                padding: 8px 10px;
+                font-size: 8px;
+                width: min(260px, calc(100vw - 118px));
+                padding: 5px 6px;
+                line-height: 1.12;
+                border-radius: 6px;
+                box-shadow: 0 8px 20px rgba(0,0,0,0.42);
+            }
+            .hud-main {
+                gap: 4px;
+                margin-bottom: 3px;
+            }
+            .hud-title {
+                font-size: 9px;
+            }
+            .hud-pill {
+                padding: 1px 4px;
+                border-radius: 5px;
+            }
+            .hud-yogurt-panel {
+                grid-template-columns: 46px 1fr;
+                gap: 4px;
+                padding: 4px;
+                border-radius: 6px;
+            }
+            .hud-yogurt-count {
+                min-width: 44px;
+                font-size: 15px;
+            }
+            .hud-yogurt-count small {
+                font-size: 7px;
+            }
+            .hud-meter {
+                height: 5px;
+            }
+            .hud-steps {
+                gap: 3px;
+                margin-top: 4px;
+            }
+            .hud-step {
+                padding: 1px 3px;
+                border-radius: 5px;
+                font-size: 7px;
+            }
+            .hud-goal {
+                margin-top: 4px;
+            }
+            .hud-controls {
+                display: none;
             }
         }
 
@@ -463,10 +724,9 @@
             <div class="start-card open-world-card title-content">
                 <div class="title-kicker">MOAI CHASE SURVIVAL</div>
                 <h1 style="font-size: clamp(30px, 8vw, 52px); margin: 0 0 10px;">MOAI ROBO OPEN WORLD</h1>
-                <p class="title-copy">封印石を集め、増殖する作者から逃げ切れ。夜の遺跡では光リングでワープできる。</p>
+                <p class="title-copy">HMJ特別ステージ！ヨーグルトを集め、増殖する作者から逃げ切れ。ブースの間を駆け抜けろ。</p>
                 <div class="stage-select">
-                    <button class="stage-button" type="button" data-stage="1">STAGE 1<br><span>OPEN WORLD</span></button>
-                    <button class="stage-button stage-night" type="button" data-stage="2">STAGE 2<br><span>NIGHT RUINS</span></button>
+                    <button class="stage-button" type="button" data-stage="4" style="font-size: 16px; padding: 14px 28px; min-width: 180px;">ゲームスタート<br><span>STAGE 4: HMJ HALL</span></button>
                 </div>
                 <div class="mission-readout">
                     <span>左ドラッグ: 移動</span>
@@ -484,7 +744,23 @@
 
     <div id="mobile-stick" aria-hidden="true"></div>
     <div id="controls">
+        <div id="btn-help" class="btn-joystick">HELP</div>
         <div id="btn-fire" class="btn-joystick">DASH</div>
+    </div>
+
+    <div id="shop-dialog">
+        <div id="shop-line" class="shop-line">こんにちは、モアイを作っています</div>
+        <div class="shop-actions">
+            <button id="btn-buy-moai" type="button">購入する</button>
+            <button id="btn-replay-line" type="button">セリフ再生</button>
+            <button id="btn-view-catalog" class="secondary wide" type="button">おすわりモアイ以外の作品も見る</button>
+            <button id="btn-skip-moai" class="secondary" type="button">見送る</button>
+        </div>
+    </div>
+
+    <div id="catalog-overlay">
+        <button id="catalog-close" type="button">ゲームに戻る</button>
+        <iframe id="catalog-frame" title="お品書き"></iframe>
     </div>
 
     <script type="importmap">
@@ -495,7 +771,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260604_start_bgm"></script>
+    <script type="module" src="./main.js?v=20260613_catalog_pause_voice"></script>
 </body>
 
 </html>
