@@ -2336,8 +2336,29 @@ function updateAuthor(dt, enemy = author, index = 0) {
     if (isMoataroClerk(enemy, index)) {
       updateMoataroClerk(enemy, dt);
     } else {
+      const brain = enemy.userData.ai || { phase: 0, speedBias: 0 };
+      const roamAngle = performance.now() * 0.0006 + brain.phase * 2.3;
+      const roamDir = new THREE.Vector3(Math.cos(roamAngle), 0, Math.sin(roamAngle))
+        .add(getSeparationVector(enemy).multiplyScalar(0.72))
+        .normalize();
+      const roamSpeed = 3.5 + (brain.speedBias || 0) * 0.5;
+      enemy.position.addScaledVector(roamDir, roamSpeed * dt);
+      
+      enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
+      enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
+      resolveObstacleCollisions(enemy, 1.05);
+      resolveRegularCustomerCollisions(enemy, 1.05);
+      resolveCeleryCollisions(enemy, 1.05);
+      enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
+      enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
       setEntityGroundHeight(enemy);
-      enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+      
+      const lookTarget = enemy.position.clone().add(roamDir);
+      enemy.lookAt(lookTarget.x, enemy.position.y + 2, lookTarget.z);
+      
+      enemy.children.forEach((child, childIndex) => {
+        child.rotation.z += childIndex === 1 ? dt * (1.2 + index * 0.18) : 0;
+      });
     }
     return;
   }
@@ -2528,13 +2549,6 @@ function handleStageFourAuthorContact(enemy) {
 
 function updateRegularCustomers(dt) {
   if (currentStage !== 4 || !regularCustomers.length) return;
-  if (!moataroMoaiPurchased) {
-    regularCustomers.forEach((customer) => {
-      setEntityGroundHeight(customer);
-      customer.lookAt(camera.position.x, customer.position.y + 2, camera.position.z);
-    });
-    return;
-  }
   const time = performance.now() * 0.001;
   regularCustomers.forEach((customer, index) => {
     customer.userData.turnTimer -= dt;
@@ -2572,13 +2586,6 @@ function updateRegularCustomers(dt) {
 
 function updateCeleryCustomers(dt) {
   if (currentStage !== 4 || !celeryCustomers.length) return;
-  if (!moataroMoaiPurchased) {
-    celeryCustomers.forEach((celery) => {
-      setEntityGroundHeight(celery);
-      celery.lookAt(camera.position.x, celery.position.y + 2, camera.position.z);
-    });
-    return;
-  }
   const time = performance.now() * 0.001;
   celeryCustomers.forEach((celery, index) => {
     celery.userData.hitCooldown = Math.max(0, (celery.userData.hitCooldown || 0) - dt);
