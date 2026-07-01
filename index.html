@@ -160,90 +160,109 @@
 
         #shop-dialog {
             position: absolute;
-            left: 0;
-            top: 0;
-            width: 100vw;
-            height: 100vh;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             z-index: 18;
             display: none;
+            width: min(540px, calc(100vw - 28px));
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(7, 18, 24, 0.94);
+            border: 2px solid rgba(255, 216, 122, 0.45);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.75);
+            backdrop-filter: blur(20px);
+            pointer-events: auto;
+            text-align: center;
             flex-direction: column;
-            justify-content: space-between;
-            pointer-events: none;
-            box-sizing: border-box;
+            gap: 12px;
         }
 
         .shop-header {
-            background: rgba(7, 18, 24, 0.88);
-            border-bottom: 2px solid rgba(119, 244, 255, 0.4);
-            color: #fff;
-            padding: 14px 20px;
-            font-size: 16px;
+            color: #fff6cf;
             font-weight: 900;
-            text-align: center;
-            pointer-events: auto;
-            text-shadow: 0 1px 8px rgba(0,0,0,0.8);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-size: 15px;
+            margin-bottom: 12px;
+            text-shadow: 0 1px 8px rgba(0,0,0,0.9);
+            line-height: 1.45;
         }
 
         .shop-actions {
             display: flex;
-            justify-content: space-around;
-            align-items: center;
-            width: 100%;
-            max-width: 760px;
-            margin: auto;
-            padding: 0 20px;
-            box-sizing: border-box;
-            pointer-events: none;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .moai-direct-btn {
-            background: rgba(17, 34, 44, 0.94);
-            border: 2px solid #77f4ff;
-            border-radius: 40px;
-            padding: 10px 22px;
-            color: #fff;
+        .moai-cards-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .moai-choice-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 14px 8px;
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(119, 244, 255, 0.35);
-            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+            color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-width: 130px;
             font-family: inherit;
+            position: relative;
             outline: none;
-            pointer-events: auto;
         }
 
-        .moai-direct-btn:hover {
-            transform: translateY(-8px) scale(1.08);
-            background: #77f4ff;
+        .moai-choice-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 216, 122, 0.08);
+            border-color: #ffbc69;
+            box-shadow: 0 8px 24px rgba(255, 216, 122, 0.25);
+        }
+
+        .moai-choice-card img {
+            width: 80px;
+            height: 95px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+            transition: transform 0.2s ease;
+        }
+
+        .moai-choice-card:hover img {
+            transform: scale(1.08);
+        }
+
+        .moai-hover-name {
+            position: absolute;
+            top: -24px;
+            background: #ffbc69;
             color: #101a20;
-            box-shadow: 0 0 28px #77f4ff;
-            border-color: #fff;
-        }
-
-        .moai-tag-name {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: 900;
-            font-size: 15px;
-            letter-spacing: 0.5px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: all 0.18s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+            pointer-events: none;
+            z-index: 10;
         }
 
-        .moai-tag-sub {
-            font-size: 9px;
-            opacity: 0.85;
-            margin-top: 2px;
+        .moai-choice-card:hover .moai-hover-name {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .shop-footer {
-            background: rgba(7, 18, 24, 0.88);
-            border-top: 1.5px solid rgba(255, 216, 122, 0.25);
-            padding: 14px 20px;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            pointer-events: auto;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
         }
 
         .shop-actions button {
@@ -850,30 +869,30 @@
     </div>
 
     <div id="shop-dialog">
-        <div class="shop-header">どのモアイを連れていきますか？ (机の上のモアイをタップして選んでください)</div>
+        <div class="shop-header">そこに 3つのモアイ がおるじゃろう！<br>好きなのを 1体 選ぶのじゃ。</div>
         <div class="shop-actions">
-            <!-- Moai 1 Tag (Left) -->
-            <button id="btn-buy-moai-1" class="moai-direct-btn" type="button">
-                <div class="moai-tag-name">① おすわり</div>
-                <div class="moai-tag-sub">定番の癒やしフォルム</div>
-            </button>
-            
-            <!-- Moai 2 Tag (Center) -->
-            <button id="btn-buy-moai-2" class="moai-direct-btn" type="button">
-                <div class="moai-tag-name">② ルアー立</div>
-                <div class="moai-tag-sub">釣りが得意なマッチョ</div>
-            </button>
-            
-            <!-- Moai 3 Tag (Right) -->
-            <button id="btn-buy-moai-3" class="moai-direct-btn" type="button">
-                <div class="moai-tag-name">③ メガネ立</div>
-                <div class="moai-tag-sub">インテリなマッチョ</div>
-            </button>
-        </div>
-        <div class="shop-footer">
-            <button id="btn-replay-line" type="button" style="min-width: 110px;">セリフ再生</button>
-            <button id="btn-view-catalog" class="secondary" type="button" style="min-width: 110px;">お品書き</button>
-            <button id="btn-skip-moai" class="secondary" type="button" style="min-width: 110px;">見送る</button>
+            <div class="moai-cards-container">
+                <button id="btn-buy-moai-1" class="moai-choice-card" type="button">
+                    <div class="moai-hover-name">おすわりモアイ</div>
+                    <img src="./moai_shot.png" alt="おすわりモアイ">
+                    <div class="moai-card-desc">定番の人気モアイ。丸っこい癒やしフォルム。</div>
+                </button>
+                <button id="btn-buy-moai-2" class="moai-choice-card" type="button">
+                    <div class="moai-hover-name">ルアー立モアイ</div>
+                    <img src="./moai_lure.png" alt="ルアースタンド">
+                    <div class="moai-card-desc">釣りが大好きなマッチョモアイスタンド。</div>
+                </button>
+                <button id="btn-buy-moai-3" class="moai-choice-card" type="button">
+                    <div class="moai-hover-name">メガネ立モアイ</div>
+                    <img src="./moai_glasses.png" alt="メガネスタンド">
+                    <div class="moai-card-desc">知性派なメガネかけマッチョモアイ。</div>
+                </button>
+            </div>
+            <div class="shop-footer">
+                <button id="btn-replay-line" type="button">セリフ再生</button>
+                <button id="btn-view-catalog" class="secondary wide" type="button">作品お品書き</button>
+                <button id="btn-skip-moai" class="secondary" type="button" style="grid-column: span 2;">見送る</button>
+            </div>
         </div>
     </div>
 
@@ -890,7 +909,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260701_floating_tags"></script>
+    <script type="module" src="./main.js?v=20260701_static_hover_selection"></script>
 </body>
 
 </html>
