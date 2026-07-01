@@ -2815,7 +2815,7 @@ function updatePetMoai(dt) {
   behind.y = getGroundHeight(behind.x, behind.z);
   petMoai.position.lerp(behind, 1 - Math.pow(0.001, dt));
   petMoai.children.forEach((child) => {
-    if (child.userData.faceCamera) child.lookAt(camera.position);
+    if (child.userData.faceCamera && !child.isSprite) child.lookAt(camera.position);
   });
 }
 
