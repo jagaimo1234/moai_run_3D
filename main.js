@@ -1845,6 +1845,9 @@ function setHud() {
       </div>
       <div class="hud-goal">${goal}${special ? ` / ${special}` : ''}</div>
       <div class="hud-controls">左ドラッグ 移動 / 右ドラッグ 視点 / DASH ダッシュ</div>
+      <div style="font-size: 8px; color: rgba(255,255,255,0.45); margin-top: 3px;">
+        [Debug] 購入フラグ: ${moataroMoaiPurchased} / 表示: ${petMoai.visible} / 位置: (${petMoai.position.x.toFixed(1)}, ${petMoai.position.y.toFixed(1)}, ${petMoai.position.z.toFixed(1)}) / Yaw: ${cameraYaw.toFixed(2)}
+      </div>
     `;
   }
   updateHelpButton();
