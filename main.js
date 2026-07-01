@@ -1765,7 +1765,9 @@ function setHud() {
     const safeZone = getCurrentSafetyZone();
     const config = getStageConfig();
     const stageCall = stageTransitionTimer > 0 ? `${config.name} ` : '';
-    const danger = safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
+    const danger = (currentStage === 4 && !moataroMoaiPurchased)
+      ? 'ブースでモアイを購入しよう'
+      : safeZone ? 'セーフティゾーン' : distance < 10 ? '近い！逃げろ' : distance < 24 ? '作者が追跡中' : '気配は遠い';
     const alertHint = teleportAlertTimer > 0 ? '  ワープ音で作者が警戒中' : '';
     const ringHint = currentStage === 2 ? `  光リング: ワープ${alertHint}` : '';
     const helperHint = currentStage === 3
@@ -1777,7 +1779,9 @@ function setHud() {
       : '';
     const progress = Math.min(100, Math.round((crystals / required) * 100));
     const stageFourStealDone = currentStage !== 4 || stolenYogurts > 0;
-    const goal = escapeOpen ? `ゲート解放中: ヨーグルト${required}個を持って脱出` : config.mission;
+    const goal = (currentStage === 4 && !moataroMoaiPurchased)
+      ? '金沢モア太郎ブース（J-80）でモアイを購入して連れていく'
+      : escapeOpen ? `ゲート解放中: ヨーグルト${required}個を持って脱出` : config.mission;
     const special = `${ringHint}${helperHint}`.trim();
     hud.hint.innerHTML = `
       <div class="hud-main">
@@ -2328,6 +2332,15 @@ function updateMoataroClerk(enemy, dt) {
 
 function updateAuthor(dt, enemy = author, index = 0) {
   if (!enemy.userData.ai?.active) return;
+  if (currentStage === 4 && !moataroMoaiPurchased) {
+    if (isMoataroClerk(enemy, index)) {
+      updateMoataroClerk(enemy, dt);
+    } else {
+      setEntityGroundHeight(enemy);
+      enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+    }
+    return;
+  }
   const safeZone = getCurrentSafetyZone();
   updateAuthorYogurtTime(enemy, dt);
   enemy.userData.contactFxCooldown = Math.max(0, (enemy.userData.contactFxCooldown || 0) - dt);
