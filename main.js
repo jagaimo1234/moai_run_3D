@@ -2789,7 +2789,7 @@ function speakMoataroLine() {
 function updateMoataroShopDialog() {
   if (!hud.shop) return;
   const shouldShow = moataroServiceActive && !moataroPromptDismissed;
-  hud.shop.style.display = shouldShow ? 'block' : 'none';
+  hud.shop.style.display = shouldShow ? 'flex' : 'none';
   const showBtn = moataroMoaiPurchased ? 'none' : '';
   if (hud.buyMoai1) hud.buyMoai1.style.display = showBtn;
   if (hud.buyMoai2) hud.buyMoai2.style.display = showBtn;
