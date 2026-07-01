@@ -218,7 +218,32 @@ const celeryCustomers = [];
 const regularCustomers = [];
 const petMoai = new THREE.Group();
 petMoai.visible = false;
-scene.add(petMoai);
+let guideArrow = null;
+
+function createGuideArrow() {
+  const group = new THREE.Group();
+  const coneGeo = new THREE.ConeGeometry(0.35, 0.9, 5);
+  coneGeo.rotateX(Math.PI / 2);
+  const coneMat = new THREE.MeshStandardMaterial({
+    color: 0x77f4ff,
+    emissive: 0x2ce8ff,
+    emissiveIntensity: 1.8,
+    roughness: 0.1,
+  });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  cone.position.set(0, 0, 0.4);
+  group.add(cone);
+
+  const tailGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 5);
+  tailGeo.rotateX(Math.PI / 2);
+  const tail = new THREE.Mesh(tailGeo, coneMat);
+  tail.position.set(0, 0, -0.3);
+  group.add(tail);
+
+  group.visible = false;
+  scene.add(group);
+  return group;
+}
 
 const hud = {
   hint: document.getElementById('ui-text'),
@@ -3172,6 +3197,15 @@ function animate() {
     updatePickups(dt);
     updateTeleportRings(dt);
     updateContactEffects(dt);
+    if (currentStage === 4 && !moataroMoaiPurchased && guideArrow) {
+      guideArrow.visible = true;
+      guideArrow.position.copy(moai.position).add(new THREE.Vector3(0, 3.8 + Math.sin(performance.now() * 0.0055) * 0.25, 0));
+      const targetPos = MOATARO_SERVICE.center.clone();
+      targetPos.y = guideArrow.position.y;
+      guideArrow.lookAt(targetPos);
+    } else if (guideArrow) {
+      guideArrow.visible = false;
+    }
   }
 
   props.forEach((prop) => {
@@ -3396,6 +3430,7 @@ window.addEventListener('resize', () => {
 loadMoaiModel();
 createBlueHelperModel();
 createPetMoaiModel();
+guideArrow = createGuideArrow();
 createAuthor();
 createWorld();
 moai.position.set(0, 0, 28);
