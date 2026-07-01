@@ -15,12 +15,12 @@ const MOATARO_SERVICE = {
   clerkSpot: new THREE.Vector3(27, 0, 31.5),
 };
 const MOATARO_LINES = [
-  'こんにちは、モアイを作っています',
+  'そこに 3つのモアイ がおるじゃろう！好きなのを 1体 選ぶのじゃ。',
   'おすわりモアイおすすめです',
   'あなたが来るの待ってました',
 ];
 const MOATARO_LINE_VOICES = [
-  { text: 'こんにちは、モアイを作っています', src: './voice/hello.m4a' },
+  { text: 'そこに 3つのモアイ がおるじゃろう！好きなのを 1体 選ぶのじゃ。', src: './voice/hello.m4a' },
   { text: 'おすわりモアイおすすめです', src: './voice/osuwariosusume.m4a' },
   { text: 'あなたが来るの待ってました', src: './voice/waitingu.m4a' },
 ];
@@ -221,6 +221,9 @@ const petMoai = new THREE.Group();
 petMoai.visible = false;
 scene.add(petMoai);
 let guideArrow = null;
+const starterMoais = [];
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
 
 function createGuideArrow() {
   const group = new THREE.Group();
@@ -1409,8 +1412,16 @@ function addMoataroBoothDetails(x, z) {
   starter1.userData.faceCamera = true;
   starter1.userData.slowBob = 0;
   starter1.userData.baseY = 2.12;
+  starter1.userData.moaiType = 1;
+  const label1 = createTextSprite('おすわりモアイ', '#ffbc69', 20);
+  label1.position.set(x - 1.8, 2.85, z + 1.45);
+  label1.visible = false;
+  world.add(label1);
+  props.push(label1);
+  starter1.userData.label = label1;
   world.add(starter1);
   props.push(starter1);
+  starterMoais.push(starter1);
 
   const starter2 = new THREE.Sprite(lureMaterial);
   starter2.position.set(x, 2.12, z + 1.45);
@@ -1418,8 +1429,16 @@ function addMoataroBoothDetails(x, z) {
   starter2.userData.faceCamera = true;
   starter2.userData.slowBob = 1.2;
   starter2.userData.baseY = 2.12;
+  starter2.userData.moaiType = 2;
+  const label2 = createTextSprite('ルアー立モアイ', '#ffbc69', 20);
+  label2.position.set(x, 2.85, z + 1.45);
+  label2.visible = false;
+  world.add(label2);
+  props.push(label2);
+  starter2.userData.label = label2;
   world.add(starter2);
   props.push(starter2);
+  starterMoais.push(starter2);
 
   const starter3 = new THREE.Sprite(glassesMaterial);
   starter3.position.set(x + 1.8, 2.12, z + 1.45);
@@ -1427,8 +1446,16 @@ function addMoataroBoothDetails(x, z) {
   starter3.userData.faceCamera = true;
   starter3.userData.slowBob = 2.4;
   starter3.userData.baseY = 2.12;
+  starter3.userData.moaiType = 3;
+  const label3 = createTextSprite('メガネ立モアイ', '#ffbc69', 20);
+  label3.position.set(x + 1.8, 2.85, z + 1.45);
+  label3.visible = false;
+  world.add(label3);
+  props.push(label3);
+  starter3.userData.label = label3;
   world.add(starter3);
   props.push(starter3);
+  starterMoais.push(starter3);
 }
 
 function addAisleCarpet(x, z, width, depth, color) {
@@ -2859,6 +2886,37 @@ function buyMoataroMoai(type = 1) {
   setTimeout(() => blip(1320, 0.16, 0.1, 'triangle'), 120);
 }
 
+function checkStarterMoaiHover() {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(starterMoais);
+  
+  starterMoais.forEach((m) => {
+    if (m.userData.label) m.userData.label.visible = false;
+    m.scale.set(1.15, 1.15, 1);
+  });
+  
+  if (intersects.length > 0) {
+    const hitMoai = intersects[0].object;
+    if (hitMoai.userData.label) {
+      hitMoai.userData.label.visible = true;
+      hitMoai.scale.set(1.5, 1.5, 1);
+      document.body.style.cursor = 'pointer';
+    }
+  } else {
+    document.body.style.cursor = 'default';
+  }
+}
+
+function checkStarterMoaiClick() {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(starterMoais);
+  if (intersects.length > 0) {
+    const hitMoai = intersects[0].object;
+    buyMoataroMoai(hitMoai.userData.moaiType);
+    document.body.style.cursor = 'default';
+  }
+}
+
 function openCatalogPause() {
   gamePaused = true;
   stopMobileMove();
@@ -3369,6 +3427,25 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('keyup', (event) => {
   bindKey(event.code, false);
+});
+
+window.addEventListener('pointermove', (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  
+  if (moataroServiceActive && !moataroMoaiPurchased) {
+    checkStarterMoaiHover();
+  }
+});
+
+window.addEventListener('pointerdown', (event) => {
+  if (isTouchUiTarget(event)) return;
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  
+  if (moataroServiceActive && !moataroMoaiPurchased) {
+    checkStarterMoaiClick();
+  }
 });
 
 function isTouchUiTarget(event) {
