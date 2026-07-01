@@ -183,6 +183,7 @@ let moataroServiceVoiceSrc = MOATARO_LINE_VOICES[0].src;
 let moataroSpeechTimer = 0;
 let moataroPromptDismissed = false;
 let moataroMoaiPurchased = false;
+let chosenMoaiType = 1;
 let moataroInvincibleTimer = 0;
 let moataroClerkSafeTimer = 0;
 let hudUpdateTimer = 0;
@@ -252,7 +253,9 @@ const hud = {
   help: document.getElementById('btn-help'),
   shop: document.getElementById('shop-dialog'),
   shopLine: document.getElementById('shop-line'),
-  buyMoai: document.getElementById('btn-buy-moai'),
+  buyMoai1: document.getElementById('btn-buy-moai-1'),
+  buyMoai2: document.getElementById('btn-buy-moai-2'),
+  buyMoai3: document.getElementById('btn-buy-moai-3'),
   skipMoai: document.getElementById('btn-skip-moai'),
   replayLine: document.getElementById('btn-replay-line'),
   viewCatalog: document.getElementById('btn-view-catalog'),
@@ -1366,6 +1369,65 @@ function addMoataroBoothDetails(x, z) {
   counterLine.position.set(x, 1.72, z + 2.55);
   world.add(counterLine);
   props.push(counterLine);
+
+  // Load Lure Moai texture
+  const lureTexture = textureLoader.load('./moai_lure.png');
+  lureTexture.colorSpace = THREE.SRGBColorSpace;
+  lureTexture.flipY = true;
+  const lureMaterial = new THREE.SpriteMaterial({
+    map: lureTexture,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  // Load Glasses Moai texture
+  const glassesTexture = textureLoader.load('./moai_glasses.png');
+  glassesTexture.colorSpace = THREE.SRGBColorSpace;
+  glassesTexture.flipY = true;
+  const glassesMaterial = new THREE.SpriteMaterial({
+    map: glassesTexture,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  // Create 3 display plates on the counter table (on top of the plinth, z + 1.45)
+  const plateGeo = new THREE.CylinderGeometry(0.52, 0.58, 0.08, 16);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x112233, roughness: 0.4, emissive: 0x77f4ff, emissiveIntensity: 0.15 });
+  
+  [x - 1.8, x, x + 1.8].forEach((px) => {
+    const plate = new THREE.Mesh(plateGeo, plateMat);
+    plate.position.set(px, 1.62, z + 1.45);
+    world.add(plate);
+    props.push(plate);
+  });
+
+  // Create 3 floating bobbing starter Moai display sprites
+  const starter1 = new THREE.Sprite(shotMaterial);
+  starter1.position.set(x - 1.8, 2.12, z + 1.45);
+  starter1.scale.set(1.15, 1.15, 1);
+  starter1.userData.faceCamera = true;
+  starter1.userData.slowBob = 0;
+  starter1.userData.baseY = 2.12;
+  world.add(starter1);
+  props.push(starter1);
+
+  const starter2 = new THREE.Sprite(lureMaterial);
+  starter2.position.set(x, 2.12, z + 1.45);
+  starter2.scale.set(1.15, 1.15, 1);
+  starter2.userData.faceCamera = true;
+  starter2.userData.slowBob = 1.2;
+  starter2.userData.baseY = 2.12;
+  world.add(starter2);
+  props.push(starter2);
+
+  const starter3 = new THREE.Sprite(glassesMaterial);
+  starter3.position.set(x + 1.8, 2.12, z + 1.45);
+  starter3.scale.set(1.15, 1.15, 1);
+  starter3.userData.faceCamera = true;
+  starter3.userData.slowBob = 2.4;
+  starter3.userData.baseY = 2.12;
+  world.add(starter3);
+  props.push(starter3);
 }
 
 function addAisleCarpet(x, z, width, depth, color) {
@@ -2723,7 +2785,10 @@ function updateMoataroShopDialog() {
   if (!hud.shop) return;
   const shouldShow = moataroServiceActive && !moataroPromptDismissed;
   hud.shop.style.display = shouldShow ? 'block' : 'none';
-  if (hud.buyMoai) hud.buyMoai.style.display = moataroMoaiPurchased ? 'none' : '';
+  const showBtn = moataroMoaiPurchased ? 'none' : '';
+  if (hud.buyMoai1) hud.buyMoai1.style.display = showBtn;
+  if (hud.buyMoai2) hud.buyMoai2.style.display = showBtn;
+  if (hud.buyMoai3) hud.buyMoai3.style.display = showBtn;
   if (hud.replayLine) hud.replayLine.style.display = '';
   if (hud.viewCatalog) hud.viewCatalog.style.display = '';
   if (hud.skipMoai) hud.skipMoai.style.display = '';
@@ -2759,8 +2824,24 @@ function updateMoataroService(dt) {
   updatePetMoai(dt);
 }
 
-function buyMoataroMoai() {
+function updatePetMoaiTexture() {
+  const sprite = petMoai.children[0];
+  if (!sprite) return;
+  let texturePath = './moai_shot.png';
+  if (chosenMoaiType === 2) texturePath = './moai_lure.png';
+  if (chosenMoaiType === 3) texturePath = './moai_glasses.png';
+  
+  const texture = textureLoader.load(texturePath);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = true;
+  sprite.material.map = texture;
+  sprite.material.needsUpdate = true;
+}
+
+function buyMoataroMoai(type = 1) {
   if (moataroMoaiPurchased) return;
+  chosenMoaiType = type;
+  updatePetMoaiTexture();
   moataroMoaiPurchased = true;
   moataroInvincibleTimer = 3.0;
   moataroClerkSafeTimer = 7.0;
@@ -3393,14 +3474,19 @@ if (hud.help) {
   hud.help.addEventListener('mousedown', helpStart);
 }
 
-if (hud.buyMoai) {
-  hud.buyMoai.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    primeSpeech();
-    buyMoataroMoai();
-  });
-}
+const setupBuyButton = (btn, type) => {
+  if (btn) {
+    btn.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      primeSpeech();
+      buyMoataroMoai(type);
+    });
+  }
+};
+setupBuyButton(hud.buyMoai1, 1);
+setupBuyButton(hud.buyMoai2, 2);
+setupBuyButton(hud.buyMoai3, 3);
 
 if (hud.replayLine) {
   hud.replayLine.addEventListener('pointerdown', (event) => {

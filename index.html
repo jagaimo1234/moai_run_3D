@@ -795,10 +795,15 @@
     <div id="shop-dialog">
         <div id="shop-line" class="shop-line">こんにちは、モアイを作っています</div>
         <div class="shop-actions">
-            <button id="btn-buy-moai" type="button">購入する</button>
+            <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                <div style="font-size: 11px; color: #ffbc69; font-weight: 800; text-align: center;">どのモアイを連れていきますか？ (1体選択)</div>
+                <button id="btn-buy-moai-1" type="button" style="background: linear-gradient(135deg, #fff07a, #ffba63); min-height: 38px;">① おすわりモアイを連れていく</button>
+                <button id="btn-buy-moai-2" type="button" style="background: linear-gradient(135deg, #77f4ff, #4ab7ff); min-height: 38px;">② ルアースタンドを連れていく</button>
+                <button id="btn-buy-moai-3" type="button" style="background: linear-gradient(135deg, #d9ff8a, #96d56a); min-height: 38px;">③ メガネスタンドを連れていく</button>
+            </div>
             <button id="btn-replay-line" type="button">セリフ再生</button>
-            <button id="btn-view-catalog" class="secondary wide" type="button">おすわりモアイ以外の作品も見る</button>
-            <button id="btn-skip-moai" class="secondary" type="button">見送る</button>
+            <button id="btn-view-catalog" class="secondary wide" type="button">作品カタログを見る</button>
+            <button id="btn-skip-moai" class="secondary" type="button" style="grid-column: span 2;">見送る</button>
         </div>
     </div>
 
@@ -815,7 +820,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260701_debug_pet_moai"></script>
+    <script type="module" src="./main.js?v=20260701_starter_moai"></script>
 </body>
 
 </html>
