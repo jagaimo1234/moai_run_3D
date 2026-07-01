@@ -2378,8 +2378,7 @@ function updateAuthor(dt, enemy = author, index = 0) {
       enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
       setEntityGroundHeight(enemy);
       
-      const lookTarget = enemy.position.clone().add(roamDir);
-      enemy.lookAt(lookTarget.x, enemy.position.y + 2, lookTarget.z);
+      enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
       
       enemy.children.forEach((child, childIndex) => {
         child.rotation.z += childIndex === 1 ? dt * (1.2 + index * 0.18) : 0;
