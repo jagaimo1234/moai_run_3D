@@ -2528,6 +2528,13 @@ function handleStageFourAuthorContact(enemy) {
 
 function updateRegularCustomers(dt) {
   if (currentStage !== 4 || !regularCustomers.length) return;
+  if (!moataroMoaiPurchased) {
+    regularCustomers.forEach((customer) => {
+      setEntityGroundHeight(customer);
+      customer.lookAt(camera.position.x, customer.position.y + 2, camera.position.z);
+    });
+    return;
+  }
   const time = performance.now() * 0.001;
   regularCustomers.forEach((customer, index) => {
     customer.userData.turnTimer -= dt;
@@ -2565,6 +2572,13 @@ function updateRegularCustomers(dt) {
 
 function updateCeleryCustomers(dt) {
   if (currentStage !== 4 || !celeryCustomers.length) return;
+  if (!moataroMoaiPurchased) {
+    celeryCustomers.forEach((celery) => {
+      setEntityGroundHeight(celery);
+      celery.lookAt(camera.position.x, celery.position.y + 2, camera.position.z);
+    });
+    return;
+  }
   const time = performance.now() * 0.001;
   celeryCustomers.forEach((celery, index) => {
     celery.userData.hitCooldown = Math.max(0, (celery.userData.hitCooldown || 0) - dt);
