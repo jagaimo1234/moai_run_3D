@@ -219,6 +219,7 @@ const celeryCustomers = [];
 const regularCustomers = [];
 const petMoai = new THREE.Group();
 petMoai.visible = false;
+scene.add(petMoai);
 let guideArrow = null;
 
 function createGuideArrow() {
