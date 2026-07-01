@@ -2370,6 +2370,10 @@ function updateBlueHelper(dt) {
 }
 
 function movePlayer(dt) {
+  if (moataroServiceActive && !moataroPromptDismissed && !moataroMoaiPurchased) {
+    playerVelocity.set(0, 0, 0);
+    return;
+  }
   const xInput = Number(keys.right) - Number(keys.left) + mobileMove.x;
   const zInput = Number(keys.forward) - Number(keys.backward) + mobileMove.z;
   const input = new THREE.Vector3(xInput, 0, zInput);
@@ -3164,6 +3168,14 @@ function activateFinalSwarm() {
 }
 
 function updateCamera(dt) {
+  if (moataroServiceActive && !moataroPromptDismissed && !moataroMoaiPurchased) {
+    const lookTarget = MOATARO_SERVICE.center.clone().add(new THREE.Vector3(0, 1.72, 1.45));
+    const desiredPos = MOATARO_SERVICE.center.clone().add(new THREE.Vector3(0, 2.4, 4.6));
+    camera.position.lerp(desiredPos, 1 - Math.pow(0.0001, dt));
+    camera.lookAt(lookTarget);
+    return;
+  }
+
   const desiredDistance = THREE.MathUtils.lerp(cameraDistance, keys.fire && energy > 3 ? 12.5 : 10.5, 1 - Math.pow(0.001, dt));
   cameraDistance = desiredDistance;
   const horizontal = Math.cos(cameraPitch) * desiredDistance;
