@@ -464,6 +464,41 @@
             max-width: 520px;
         }
 
+        .game-steps {
+            background: rgba(119, 244, 255, 0.06);
+            border: 1px solid rgba(119, 244, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 15px auto;
+            text-align: left;
+            max-width: 480px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .game-steps h3 {
+            margin: 0 0 6px 0;
+            color: #77f4ff;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 800;
+        }
+        .game-steps ul {
+            margin: 0;
+            padding-left: 18px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .coupon-tag {
+            background: linear-gradient(90deg, #ffbc69, #ffea79);
+            color: #101a20;
+            font-weight: 900;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: block;
+            margin-top: 8px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(255, 188, 105, 0.35);
+        }
+
         .mission-readout {
             display: flex;
             gap: 10px;
@@ -725,6 +760,15 @@
                 <div class="title-kicker">MOAI CHASE SURVIVAL</div>
                 <h1 style="font-size: clamp(30px, 8vw, 52px); margin: 0 0 10px;">MOAI ROBO OPEN WORLD</h1>
                 <p class="title-copy">HMJ特別ステージ！ヨーグルトを集め、増殖する作者から逃げ切れ。ブースの間を駆け抜けろ。</p>
+                <div class="game-steps">
+                    <h3>【ゲームの流れ】</h3>
+                    <ul>
+                        <li><strong>① モアイブースへ行こう</strong>：案内矢印を頼りにJ-80ブースへ行き、モアイ作品を購入！</li>
+                        <li><strong>② ヨーグルトを集めよう</strong>：モアイを連れるとゲーム開始！作者の追跡を避けながらヨーグルトを集めます。</li>
+                        <li><strong>③ 会場から脱出しよう</strong>：ヨーグルトを全て集めきるとゲートが解放！脱出してクリアを目指します。</li>
+                    </ul>
+                    <span class="coupon-tag">🎁 脱出成功でブースで使える「限定クーポン」GET！</span>
+                </div>
                 <div class="stage-select">
                     <button class="stage-button" type="button" data-stage="4" style="font-size: 16px; padding: 14px 28px; min-width: 180px;">ゲームスタート<br><span>STAGE 4: HMJ HALL</span></button>
                 </div>
@@ -771,7 +815,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260701_fix_tilt"></script>
+    <script type="module" src="./main.js?v=20260701_steps_coupon"></script>
 </body>
 
 </html>

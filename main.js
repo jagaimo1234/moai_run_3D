@@ -1808,6 +1808,29 @@ function setHud() {
       ? '金沢モア太郎ブース（J-80）でモアイを購入して連れていく'
       : escapeOpen ? `ゲート解放中: ヨーグルト${required}個を持って脱出` : config.mission;
     const special = `${ringHint}${helperHint}`.trim();
+
+    let stepsHtml = '';
+    if (currentStage === 4) {
+      const step1Class = moataroMoaiPurchased ? 'done' : 'warn';
+      const step2Class = (moataroMoaiPurchased && !escapeOpen) ? 'warn' : escapeOpen ? 'done' : '';
+      const step3Class = escapeOpen ? 'warn' : '';
+      stepsHtml = `
+        <div class="hud-steps" style="display: flex; flex-direction: column; gap: 3px; margin-top: 5px;">
+          <span class="hud-step ${step1Class}">① モアイ購入: ${moataroMoaiPurchased ? '完了' : '未達成'}</span>
+          <span class="hud-step ${step2Class}">② ヨーグルト: ${crystals}/${required}個 (作者強奪: ${stageFourStealDone ? 'OK' : '必要'})</span>
+          <span class="hud-step ${step3Class}">③ 会場から脱出！ (🎁クーポンGET)</span>
+        </div>
+      `;
+    } else {
+      stepsHtml = `
+        <div class="hud-steps">
+          <span class="hud-step ${crystals >= required ? 'done' : 'warn'}">必要 ${required}個</span>
+          <span class="hud-step">作者 ${getActiveAuthors().length}体</span>
+          <span class="hud-step">距離 ${distance.toFixed(0)}m</span>
+        </div>
+      `;
+    }
+
     hud.hint.innerHTML = `
       <div class="hud-main">
         <span class="hud-title">${stageCall || config.name}</span>
@@ -1817,12 +1840,7 @@ function setHud() {
         <div class="hud-yogurt-count">${crystals}<small>/ ${required} ヨーグルト</small></div>
         <div>
           <div class="hud-meter" style="--hud-progress: ${progress}%"><div class="hud-meter-fill"></div></div>
-          <div class="hud-steps">
-            <span class="hud-step ${crystals >= required ? 'done' : 'warn'}">必要 ${required}個</span>
-            ${currentStage === 4 ? `<span class="hud-step ${stageFourStealDone ? 'done' : 'warn'}">作者から奪取 ${stageFourStealDone ? 'OK' : '必要'}</span>` : ''}
-            <span class="hud-step">作者 ${getActiveAuthors().length}体</span>
-            <span class="hud-step">距離 ${distance.toFixed(0)}m</span>
-          </div>
+          ${stepsHtml}
         </div>
       </div>
       <div class="hud-goal">${goal}${special ? ` / ${special}` : ''}</div>
@@ -3093,12 +3111,27 @@ function finishGame(won) {
   const body = won
     ? 'ゲートから逃げ切った。好きなステージを選んでもう一度挑戦。'
     : '足音が近い時は視点を回して進路を作り、SPACE/SHIFTでダッシュ。タップで再挑戦。';
+
+  let couponHtml = '';
+  if (won && currentStage === 4) {
+    couponHtml = `
+      <div style="background: linear-gradient(135deg, #1d2b36, #0e1820); border: 2px dashed #ffbc69; border-radius: 8px; padding: 16px; margin: 15px auto 20px; max-width: 440px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center;">
+        <h3 style="color: #ffbc69; margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">🎁 デザフェス限定特典クーポン 🎁</h3>
+        <p style="margin: 0 0 10px 0; font-size: 13px; color: #fff6cf;">ブース（J-80）でこの画面、または以下のクーポンコードを提示してください！</p>
+        <div style="background: #ffbc69; color: #101a20; font-size: 20px; font-weight: 900; padding: 8px; border-radius: 4px; letter-spacing: 2px; display: inline-block; min-width: 220px;">
+          コード: MOAI2026
+        </div>
+      </div>
+    `;
+  }
+
   hud.start.style.display = 'flex';
   hud.start.style.opacity = '1';
   hud.start.innerHTML = `
     <div class="start-card open-world-card">
       <h1>${title}</h1>
       <p class="tap-msg">${body}</p>
+      ${couponHtml}
       <div class="mission-readout">
         <span>ステージ 4 (HMJ HALL)</span>
         <span>ヨーグルト ${crystals}</span>
