@@ -15,12 +15,12 @@ const MOATARO_SERVICE = {
   clerkSpot: new THREE.Vector3(27, 0, 31.5),
 };
 const MOATARO_LINES = [
-  'そこに 3つのモアイ がおるじゃろう！好きなのを 1体 選ぶのじゃ。',
+  'そこに 3つのモアイ がおるじゃろう！\n好きなのを 1体 選ぶのじゃ。',
   'おすわりモアイおすすめです',
   'あなたが来るの待ってました',
 ];
 const MOATARO_LINE_VOICES = [
-  { text: 'そこに 3つのモアイ がおるじゃろう！好きなのを 1体 選ぶのじゃ。', src: './voice/hello.m4a' },
+  { text: 'そこに 3つのモアイ がおるじゃろう！\n好きなのを 1体 選ぶのじゃ。', src: './voice/hello.m4a' },
   { text: 'おすわりモアイおすすめです', src: './voice/osuwariosusume.m4a' },
   { text: 'あなたが来るの待ってました', src: './voice/waitingu.m4a' },
 ];
@@ -551,7 +551,18 @@ function createTextTexture(text, color = '#ffffff', fontSize = 46) {
   ctx.font = `bold ${fontSize}px DotGothic16, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  
+  const lines = text.split('\n');
+  if (lines.length === 1) {
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  } else {
+    const lineHeight = fontSize + 10;
+    const startY = (canvas.height / 2) - (lineHeight * (lines.length - 1) / 2);
+    lines.forEach((line, i) => {
+      ctx.fillText(line, canvas.width / 2, startY + i * lineHeight);
+    });
+  }
+  
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
