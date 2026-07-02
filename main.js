@@ -2405,7 +2405,7 @@ function updateBlueHelper(dt) {
 
 function movePlayer(dt) {
   const confirmOpen = hud.confirmDialog && hud.confirmDialog.style.display === 'flex';
-  if (confirmOpen || (moataroServiceActive && !moataroPromptDismissed && !moataroMoaiPurchased)) {
+  if (confirmOpen) {
     playerVelocity.set(0, 0, 0);
     return;
   }
@@ -2474,7 +2474,7 @@ function updateMoataroClerk(enemy, dt) {
   if (toPlayer.lengthSq() > 0.22) {
     enemy.position.addScaledVector(toPlayer.normalize(), 34 * dt);
   }
-  enemy.lookAt(moai.position.x, enemy.position.y + 1.7, moai.position.z);
+  enemy.lookAt(moai.position.x, enemy.position.y, moai.position.z);
 }
 
 function updateAuthor(dt, enemy = author, index = 0) {
@@ -2500,7 +2500,7 @@ function updateAuthor(dt, enemy = author, index = 0) {
       enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
       setEntityGroundHeight(enemy);
       
-      enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+      enemy.lookAt(camera.position.x, enemy.position.y, camera.position.z);
       
       enemy.children.forEach((child, childIndex) => {
         child.rotation.z += childIndex === 1 ? dt * (1.2 + index * 0.18) : 0;
@@ -2515,7 +2515,7 @@ function updateAuthor(dt, enemy = author, index = 0) {
     enemy.userData.downTimer = Math.max(0, enemy.userData.downTimer - dt);
     if (enemy.userData.downLabel) enemy.userData.downLabel.visible = enemy.userData.downTimer > 0;
     enemy.rotation.z = Math.sin(performance.now() * 0.012 + index) * 0.16;
-    enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+    enemy.lookAt(camera.position.x, enemy.position.y, camera.position.z);
     if (enemy.userData.downTimer <= 0 && enemy.userData.downLabel) enemy.userData.downLabel.visible = false;
     return;
   }
@@ -2597,7 +2597,7 @@ function updateAuthor(dt, enemy = author, index = 0) {
   enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -WORLD_SIZE, WORLD_SIZE);
   enemy.position.z = THREE.MathUtils.clamp(enemy.position.z, -WORLD_SIZE, WORLD_SIZE);
   setEntityGroundHeight(enemy);
-  enemy.lookAt(camera.position.x, enemy.position.y + 2, camera.position.z);
+  enemy.lookAt(camera.position.x, enemy.position.y, camera.position.z);
   enemy.children.forEach((child, childIndex) => {
     child.rotation.z += childIndex === 1 ? dt * (1.5 + index * 0.22) : 0;
   });
@@ -2887,6 +2887,27 @@ function buyMoataroMoai(type = 1) {
   moataroPromptDismissed = true;
   petMoai.visible = true;
   petMoai.position.copy(moai.position).add(new THREE.Vector3(0, 0, 3.2));
+
+  // Reset other authors to their fixed default spots so they don't start the chase from weird positions
+  authors.forEach((enemy, index) => {
+    if (index > 0) {
+      const starts = [
+        [-52, -6],
+        [52, -20],
+        [-42, 44],
+        [36, 52],
+        [0, -48],
+        [-58, 18],
+        [58, 20],
+      ];
+      const startPos = starts[index];
+      if (startPos) {
+        enemy.position.set(startPos[0], 0, startPos[1]);
+        setEntityGroundHeight(enemy);
+      }
+    }
+  });
+
   updateMoataroShopDialog();
   showMoataroThanks();
   blip(880, 0.12, 0.12, 'triangle');
