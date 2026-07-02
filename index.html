@@ -1110,6 +1110,14 @@
         <button id="btn-view-catalog-floating" type="button" style="width: 100%; min-height: 52px; border-radius: 12px; font-size: 16px; font-weight: 900; font-family: inherit; cursor: pointer; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #101a20; border: 2px solid #fff; box-shadow: 0 8px 24px rgba(255,215,0,0.4); transition: transform 0.15s ease;">📚 作品お品書きを見る</button>
     </div>
 
+    <div id="rival-dialog" style="display: none; position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); z-index: 25; width: 90%; max-width: 500px; padding: 20px; border-radius: 12px; background: rgba(7, 18, 24, 0.98); border: 3px solid #ff5555; box-shadow: 0 16px 45px rgba(255,55,55,0.45); text-align: left; box-sizing: border-box; cursor: pointer; backdrop-filter: blur(15px); pointer-events: auto;">
+        <div style="color: #ff5555; font-size: 15px; font-weight: 900; margin-bottom: 8px; letter-spacing: 1px; font-family: 'DotGothic16', sans-serif; display: flex; align-items: center; gap: 6px;">
+            <span>🚨</span> 作者たち (ライバル)
+        </div>
+        <div style="color: #fff6cf; font-size: 14.5px; font-weight: 800; line-height: 1.6; font-family: 'DotGothic16', sans-serif; white-space: pre-wrap;">「きみ、いいモアイもってんじゃん、ちょっとみせてよ。」</div>
+        <div style="text-align: right; color: rgba(255,255,255,0.45); font-size: 11px; margin-top: 12px; font-family: 'DotGothic16', sans-serif; font-weight: bold; animation: pulse 1s infinite alternate;">▼ タップして逃げる</div>
+    </div>
+
     <div id="catalog-overlay">
         <button id="catalog-close" type="button">ゲームに戻る</button>
         <iframe id="catalog-frame" title="お品書き"></iframe>
@@ -1123,7 +1131,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260702_pokedex_confirm"></script>
+    <script type="module" src="./main.js?v=20260702_rival_cutscene"></script>
 </body>
 
 </html>

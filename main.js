@@ -281,6 +281,7 @@ const hud = {
   confirmDesc: document.getElementById('confirm-desc'),
   serviceMenu: document.getElementById('moataro-service-menu'),
   viewCatalogFloating: document.getElementById('btn-view-catalog-floating'),
+  rivalDialog: document.getElementById('rival-dialog'),
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2424,7 +2425,8 @@ function updateBlueHelper(dt) {
 
 function movePlayer(dt) {
   const confirmOpen = hud.confirmDialog && hud.confirmDialog.style.display === 'flex';
-  if (confirmOpen) {
+  const rivalOpen = hud.rivalDialog && hud.rivalDialog.style.display === 'block';
+  if (confirmOpen || rivalOpen) {
     playerVelocity.set(0, 0, 0);
     return;
   }
@@ -2891,16 +2893,17 @@ function updatePetMoaiTexture() {
   sprite.material.needsUpdate = true;
 }
 
-function buyMoataroMoai(type = 1) {
-  if (moataroMoaiPurchased) return;
-  chosenMoaiType = type;
-  updatePetMoaiTexture();
-  moataroMoaiPurchased = true;
-  moataroInvincibleTimer = 3.0;
-  moataroClerkSafeTimer = 7.0;
-  moataroPromptDismissed = true;
-  petMoai.visible = true;
-  petMoai.position.copy(moai.position).add(new THREE.Vector3(0, 0, 3.2));
+function playRivalEncounterSound() {
+  const tones = [220, 330, 440, 660, 880, 660, 440, 330, 220];
+  tones.forEach((freq, idx) => {
+    setTimeout(() => {
+      blip(freq, 0.14, 0.15, 'sawtooth');
+    }, idx * 80);
+  });
+}
+
+function startRivalChase() {
+  if (hud.rivalDialog) hud.rivalDialog.style.display = 'none';
 
   // Reset other authors to their fixed default spots so they don't start the chase from weird positions
   authors.forEach((enemy, index) => {
@@ -2922,10 +2925,34 @@ function buyMoataroMoai(type = 1) {
     }
   });
 
+  moataroPromptDismissed = true;
+  moataroClerkSafeTimer = 6.0; // Now clerk starts chasing soon!
   updateMoataroShopDialog();
   showMoataroThanks();
+
   blip(880, 0.12, 0.12, 'triangle');
   setTimeout(() => blip(1320, 0.16, 0.1, 'triangle'), 120);
+}
+
+function buyMoataroMoai(type = 1) {
+  if (moataroMoaiPurchased) return;
+  chosenMoaiType = type;
+  updatePetMoaiTexture();
+  moataroMoaiPurchased = true;
+  
+  moataroInvincibleTimer = 4.0;
+  moataroClerkSafeTimer = 999.0; // Keep clerk safe during cutscene dialog
+  moataroPromptDismissed = false; // Lock actions
+  
+  petMoai.visible = true;
+  petMoai.position.copy(moai.position).add(new THREE.Vector3(0, 0, 3.2));
+
+  playRivalEncounterSound();
+  screenShake = 0.55;
+
+  if (hud.rivalDialog) {
+    hud.rivalDialog.style.display = 'block';
+  }
 }
 
 function checkStarterMoaiHover() {
@@ -3711,6 +3738,14 @@ if (hud.confirmDetail) {
     if (tempSelectedMoaiType === 2) term = 'まちょい';
     if (tempSelectedMoaiType === 3) term = 'メガネ';
     openCatalogPause(term);
+  });
+}
+
+if (hud.rivalDialog) {
+  hud.rivalDialog.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    startRivalChase();
   });
 }
 
