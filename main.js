@@ -512,9 +512,18 @@ function createAuthor() {
   ring.position.y = 0.12;
   author.add(ring);
 
+  const attackerTexture = textureLoader.load('./attacker.png');
+  attackerTexture.colorSpace = THREE.SRGBColorSpace;
+
   authors.push(author);
   for (let i = 1; i < FINAL_AUTHOR_COUNT; i++) {
     const clone = author.clone(true);
+    const clonedSprite = clone.children[0];
+    if (clonedSprite && clonedSprite.material) {
+      clonedSprite.material = clonedSprite.material.clone();
+      clonedSprite.material.map = attackerTexture;
+      clonedSprite.material.needsUpdate = true;
+    }
     scene.add(clone);
     authors.push(clone);
   }
