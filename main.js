@@ -20,7 +20,7 @@ const MOATARO_LINES = [
   'あなたが来るの待ってました',
 ];
 const MOATARO_LINE_VOICES = [
-  { text: 'そこに 3つのモアイ がおるじゃろう！\n好きなのを 1体 選ぶのじゃ。', src: './voice/hello.m4a' },
+  { text: 'そこに 3つのモアイ がおるじゃろう！\n好きなのを 1体 選ぶのじゃ。', src: './voice/moataro_starter_choice.m4a' },
   { text: 'おすわりモアイおすすめです', src: './voice/osuwariosusume.m4a' },
   { text: 'あなたが来るの待ってました', src: './voice/waitingu.m4a' },
 ];
