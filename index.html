@@ -818,6 +818,67 @@
             box-shadow: 0 2px 8px rgba(0, 180, 255, 0.3);
         }
 
+        #confirm-dialog {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            display: none;
+            width: min(320px, calc(100vw - 28px));
+            padding: 22px;
+            border-radius: 12px;
+            background: rgba(7, 18, 24, 0.94);
+            border: 2px solid #ffbc69;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            pointer-events: auto;
+            text-align: center;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            box-sizing: border-box;
+        }
+        .confirm-header {
+            color: #ffbc69;
+            font-weight: 900;
+            font-size: 18px;
+            text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+        }
+        .confirm-message {
+            color: #fff6cf;
+            font-size: 13px;
+            font-weight: 800;
+            margin-top: 8px;
+        }
+        .confirm-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .confirm-actions button {
+            min-height: 40px;
+            border-radius: 8px;
+            font-weight: 900;
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.15s ease;
+        }
+        .confirm-actions button:hover {
+            transform: scale(1.05);
+        }
+        .confirm-actions button.primary {
+            background: linear-gradient(135deg, #ffbc69, #ff9f3b);
+            color: #101a20;
+        }
+        .confirm-actions button.secondary {
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: #fff;
+        }
     </style>
 </head>
 
@@ -896,6 +957,18 @@
         </div>
     </div>
 
+    <div id="confirm-dialog">
+        <div class="confirm-header" id="confirm-title">作品名</div>
+        <div class="confirm-body">
+            <img id="confirm-img" src="" alt="Selected Moai" style="width: 140px; height: 165px; object-fit: contain; margin: 10px 0; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));">
+            <div class="confirm-message">このモアイを連れていきますか？</div>
+        </div>
+        <div class="confirm-actions">
+            <button id="btn-confirm-yes" type="button" class="primary">はい</button>
+            <button id="btn-confirm-no" type="button" class="secondary">いいえ</button>
+        </div>
+    </div>
+
     <div id="catalog-overlay">
         <button id="catalog-close" type="button">ゲームに戻る</button>
         <iframe id="catalog-frame" title="お品書き"></iframe>
@@ -909,7 +982,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260701_3d_direct_selection"></script>
+    <script type="module" src="./main.js?v=20260702_confirm_selection"></script>
 </body>
 
 </html>

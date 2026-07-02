@@ -184,6 +184,7 @@ let moataroSpeechTimer = 0;
 let moataroPromptDismissed = false;
 let moataroMoaiPurchased = false;
 let chosenMoaiType = 1;
+let tempSelectedMoaiType = 1;
 let moataroInvincibleTimer = 0;
 let moataroClerkSafeTimer = 0;
 let hudUpdateTimer = 0;
@@ -267,6 +268,11 @@ const hud = {
   catalogFrame: document.getElementById('catalog-frame'),
   catalogClose: document.getElementById('catalog-close'),
   mobileStick: document.getElementById('mobile-stick'),
+  confirmDialog: document.getElementById('confirm-dialog'),
+  confirmTitle: document.getElementById('confirm-title'),
+  confirmImg: document.getElementById('confirm-img'),
+  confirmYes: document.getElementById('btn-confirm-yes'),
+  confirmNo: document.getElementById('btn-confirm-no'),
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2398,7 +2404,8 @@ function updateBlueHelper(dt) {
 }
 
 function movePlayer(dt) {
-  if (moataroServiceActive && !moataroPromptDismissed && !moataroMoaiPurchased) {
+  const confirmOpen = hud.confirmDialog && hud.confirmDialog.style.display === 'flex';
+  if (confirmOpen || (moataroServiceActive && !moataroPromptDismissed && !moataroMoaiPurchased)) {
     playerVelocity.set(0, 0, 0);
     return;
   }
@@ -2912,8 +2919,27 @@ function checkStarterMoaiClick() {
   const intersects = raycaster.intersectObjects(starterMoais);
   if (intersects.length > 0) {
     const hitMoai = intersects[0].object;
-    buyMoataroMoai(hitMoai.userData.moaiType);
+    showMoaiConfirmation(hitMoai.userData.moaiType);
     document.body.style.cursor = 'default';
+  }
+}
+
+function showMoaiConfirmation(type) {
+  tempSelectedMoaiType = type;
+  let name = 'おすわりモアイ';
+  let imgSrc = './moai_shot.png';
+  if (type === 2) {
+    name = 'ルアー立モアイ';
+    imgSrc = './moai_lure.png';
+  } else if (type === 3) {
+    name = 'メガネ立モアイ';
+    imgSrc = './moai_glasses.png';
+  }
+  
+  if (hud.confirmTitle) hud.confirmTitle.textContent = name;
+  if (hud.confirmImg) hud.confirmImg.src = imgSrc;
+  if (hud.confirmDialog) {
+    hud.confirmDialog.style.display = 'flex';
   }
 }
 
@@ -3570,6 +3596,25 @@ const setupBuyButton = (btn, type) => {
 setupBuyButton(hud.buyMoai1, 1);
 setupBuyButton(hud.buyMoai2, 2);
 setupBuyButton(hud.buyMoai3, 3);
+
+if (hud.confirmYes) {
+  hud.confirmYes.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    primeSpeech();
+    buyMoataroMoai(tempSelectedMoaiType);
+    if (hud.confirmDialog) hud.confirmDialog.style.display = 'none';
+  });
+}
+
+if (hud.confirmNo) {
+  hud.confirmNo.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    primeSpeech();
+    if (hud.confirmDialog) hud.confirmDialog.style.display = 'none';
+  });
+}
 
 if (hud.replayLine) {
   hud.replayLine.addEventListener('pointerdown', (event) => {
