@@ -825,41 +825,131 @@
             transform: translate(-50%, -50%);
             z-index: 20;
             display: none;
-            width: min(420px, calc(100vw - 28px));
-            padding: 22px;
+            width: min(390px, calc(100vw - 24px));
+            padding: 16px;
             border-radius: 12px;
-            background: rgba(7, 18, 24, 0.94);
-            border: 2px solid #ffbc69;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+            background: rgba(14, 25, 32, 0.96);
+            border: 3px solid #ffbc69;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.85);
             backdrop-filter: blur(20px);
             pointer-events: auto;
             text-align: center;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             box-sizing: border-box;
         }
-        .confirm-header {
+        .pokedex-top {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            align-items: stretch;
+        }
+        .pokedex-img-container {
+            background: #fff;
+            border: 3px solid #77f4ff;
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 110px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.18);
+            box-sizing: border-box;
+        }
+        .pokedex-no {
+            font-size: 10px;
+            font-weight: bold;
+            color: #101a20;
+            margin-bottom: 2px;
+            font-family: 'Outfit', monospace;
+            letter-spacing: 0.5px;
+        }
+        .pokedex-img-container img {
+            width: 90px;
+            height: 105px;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.25));
+        }
+        .pokedex-stats {
+            flex: 1;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.03);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .pokedex-name {
             color: #ffbc69;
+            font-size: 15px;
             font-weight: 900;
-            font-size: 18px;
-            text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+            border-bottom: 1.5px solid rgba(255,255,255,0.15);
+            padding-bottom: 3px;
+            margin-bottom: 3px;
+        }
+        .pokedex-stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 800;
+        }
+        .pokedex-stat-row .label {
+            opacity: 0.6;
+        }
+        .pokedex-stat-row .val {
+            color: #77f4ff;
+        }
+        .pokedex-divider {
+            width: 100%;
+            height: 6px;
+            border-top: 2px solid rgba(255,255,255,0.2);
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: space-around;
+            margin: 4px 0;
+            box-sizing: border-box;
+        }
+        .pokedex-divider .dot {
+            width: 2px;
+            height: 2px;
+            background: rgba(255,255,255,0.2);
+        }
+        .pokedex-desc {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1.5px solid rgba(255, 216, 122, 0.25);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 11.5px;
+            text-align: left;
+            color: #fff6cf;
+            line-height: 1.55;
+            font-family: 'DotGothic16', monospace;
+            white-space: pre-wrap;
+            box-sizing: border-box;
+            min-height: 74px;
         }
         .confirm-message {
-            color: #fff6cf;
-            font-size: 13px;
-            font-weight: 800;
-            margin-top: 8px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 900;
+            margin-top: 4px;
         }
         .confirm-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 8px;
             width: 100%;
-            margin-top: 10px;
         }
         .confirm-actions button {
-            min-height: 40px;
+            min-height: 38px;
             border-radius: 8px;
             font-weight: 900;
             font-family: inherit;
@@ -868,7 +958,7 @@
             transition: transform 0.15s ease;
         }
         .confirm-actions button:hover {
-            transform: scale(1.05);
+            transform: scale(1.03);
         }
         .confirm-actions button.primary {
             background: linear-gradient(135deg, #ffbc69, #ff9f3b);
@@ -878,6 +968,19 @@
             background: rgba(255,255,255,0.08);
             border: 1.5px solid rgba(255,255,255,0.2);
             color: #fff;
+        }
+        .confirm-actions button.info {
+            grid-column: span 2;
+            background: rgba(0, 210, 255, 0.12);
+            border: 1.5px solid #00d2ff;
+            color: #00d2ff;
+            margin-top: 2px;
+            min-height: 36px;
+        }
+        .confirm-actions button.info:hover {
+            background: #00d2ff;
+            color: #101a20;
+            box-shadow: 0 0 15px #00d2ff;
         }
     </style>
 </head>
@@ -958,20 +1061,53 @@
     </div>
 
     <div id="confirm-dialog">
-        <div class="confirm-header" id="confirm-title">作品名</div>
-        <div class="confirm-body">
-            <img id="confirm-img" src="" alt="Selected Moai" style="width: 220px; height: 260px; max-width: 100%; object-fit: contain; margin: 10px 0; filter: drop-shadow(0 8px 20px rgba(0,0,0,0.65));">
-            <div class="confirm-message">このモアイを連れていきますか？</div>
+        <!-- Pokedex Upper Section -->
+        <div class="pokedex-top">
+            <div class="pokedex-img-container">
+                <div class="pokedex-no" id="confirm-no">No. 001</div>
+                <img id="confirm-img" src="" alt="Selected Moai">
+            </div>
+            <div class="pokedex-stats">
+                <div class="pokedex-name" id="confirm-title">作品名</div>
+                <div class="pokedex-stat-row">
+                    <span class="label">タイプ１</span>
+                    <span class="val" id="confirm-type1">🪨 いわ</span>
+                </div>
+                <div class="pokedex-stat-row">
+                    <span class="label">タイプ２</span>
+                    <span class="val" id="confirm-type2">💪 まっちょ</span>
+                </div>
+                <div class="pokedex-stat-row">
+                    <span class="label">ぶんるい</span>
+                    <span class="val" id="confirm-category">ぶんるい</span>
+                </div>
+            </div>
         </div>
+        
+        <!-- Retro Segment Line -->
+        <div class="pokedex-divider">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
+        
+        <!-- Pokedex Description Box -->
+        <div class="pokedex-desc" id="confirm-desc">
+            説明テキスト
+        </div>
+
+        <div class="confirm-message">このモアイを連れていきますか？</div>
         <div class="confirm-actions">
             <button id="btn-confirm-yes" type="button" class="primary">はい</button>
             <button id="btn-confirm-no" type="button" class="secondary">いいえ</button>
+            <button id="btn-confirm-detail" type="button" class="info">📖 作品詳細を見る (Creema)</button>
         </div>
     </div>
 
-    <div id="moataro-service-menu" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 15; gap: 10px;">
-        <button id="btn-replay-line-floating" type="button" style="min-width: 120px; min-height: 40px; border-radius: 8px; font-weight: 900; font-family: inherit; cursor: pointer; background: linear-gradient(135deg, #ffbc69, #ff9f3b); color: #101a20; border: none; box-shadow: 0 4px 15px rgba(255,188,105,0.35); transition: transform 0.15s ease;">セリフ再生</button>
-        <button id="btn-view-catalog-floating" type="button" style="min-width: 120px; min-height: 40px; border-radius: 8px; font-weight: 900; font-family: inherit; cursor: pointer; background: rgba(7, 18, 24, 0.88); border: 1.5px solid rgba(255,255,255,0.25); color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.35); transition: transform 0.15s ease;">作品お品書き</button>
+    <div id="moataro-service-menu" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 15; box-sizing: border-box; width: 90%; max-width: 320px;">
+        <button id="btn-view-catalog-floating" type="button" style="width: 100%; min-height: 52px; border-radius: 12px; font-size: 16px; font-weight: 900; font-family: inherit; cursor: pointer; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #101a20; border: 2px solid #fff; box-shadow: 0 8px 24px rgba(255,215,0,0.4); transition: transform 0.15s ease;">📚 作品お品書きを見る</button>
     </div>
 
     <div id="catalog-overlay">
@@ -987,7 +1123,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260702_multiline_clerk_speech"></script>
+    <script type="module" src="./main.js?v=20260702_pokedex_confirm"></script>
 </body>
 
 </html>

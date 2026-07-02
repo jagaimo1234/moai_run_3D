@@ -273,8 +273,13 @@ const hud = {
   confirmImg: document.getElementById('confirm-img'),
   confirmYes: document.getElementById('btn-confirm-yes'),
   confirmNo: document.getElementById('btn-confirm-no'),
+  confirmDetail: document.getElementById('btn-confirm-detail'),
+  confirmNoLabel: document.getElementById('confirm-no'),
+  confirmType1: document.getElementById('confirm-type1'),
+  confirmType2: document.getElementById('confirm-type2'),
+  confirmCategory: document.getElementById('confirm-category'),
+  confirmDesc: document.getElementById('confirm-desc'),
   serviceMenu: document.getElementById('moataro-service-menu'),
-  replayLineFloating: document.getElementById('btn-replay-line-floating'),
   viewCatalogFloating: document.getElementById('btn-view-catalog-floating'),
 };
 
@@ -2956,24 +2961,51 @@ function checkStarterMoaiClick() {
 
 function showMoaiConfirmation(type) {
   tempSelectedMoaiType = type;
-  let name = 'おすわりモアイペン立て';
-  let imgSrc = './moai_shot.png';
-  if (type === 2) {
+  let name = '';
+  let imgSrc = '';
+  let no = '';
+  let type1 = '🪨 いわ';
+  let type2 = '';
+  let category = '';
+  let desc = '';
+  
+  if (type === 1) {
+    name = 'おすわりモアイペン立て';
+    imgSrc = './moai_shot.png';
+    no = 'No. 215';
+    type2 = '😊 黄昏れ';
+    category = 'ペンたて';
+    desc = 'いつも　じっと　すわっている。\nペンを　あずかることが　しごとだが、\nときどき　なにも　ささっていなくても\nまんぞくそうに　している。';
+  } else if (type === 2) {
     name = 'まちょいモアイルアースタンド';
     imgSrc = './moai_lure.png';
+    no = 'No. 216';
+    type2 = '🎣 つり';
+    category = 'ルアースタンド';
+    desc = 'つれたことより\nルアーを　ながめる　じかんを\nなにより　たいせつにしている。\nルアーを　かけてもらえると\nとても　よろこぶ。';
   } else if (type === 3) {
     name = 'まちょいモアイメガネスタンド';
     imgSrc = './moai_glasses.png';
+    no = 'No. 178';
+    type2 = '💪 パワー';
+    category = 'メガネスタンド';
+    desc = 'メガネを　ささえるためだけに\nからだを　きたえつづけた。\nきんにくを　ほめられると\nちょっとだけ　うれしそうだ。';
   }
   
   if (hud.confirmTitle) hud.confirmTitle.textContent = name;
   if (hud.confirmImg) hud.confirmImg.src = imgSrc;
+  if (hud.confirmNoLabel) hud.confirmNoLabel.textContent = no;
+  if (hud.confirmType1) hud.confirmType1.textContent = type1;
+  if (hud.confirmType2) hud.confirmType2.textContent = type2;
+  if (hud.confirmCategory) hud.confirmCategory.textContent = category;
+  if (hud.confirmDesc) hud.confirmDesc.textContent = desc;
+  
   if (hud.confirmDialog) {
     hud.confirmDialog.style.display = 'flex';
   }
 }
 
-function openCatalogPause() {
+function openCatalogPause(searchName = '') {
   gamePaused = true;
   stopMobileMove();
   keys.forward = false;
@@ -2982,8 +3014,13 @@ function openCatalogPause() {
   keys.right = false;
   keys.fire = false;
   if (hud.shop) hud.shop.style.display = 'none';
-  if (hud.catalogFrame && !hud.catalogFrame.src) {
-    hud.catalogFrame.src = 'catalog.html?v=20260526_1';
+  
+  let url = 'catalog.html?v=20260526_1';
+  if (searchName) {
+    url += '&search=' + encodeURIComponent(searchName);
+  }
+  if (hud.catalogFrame) {
+    hud.catalogFrame.src = url;
   }
   if (hud.catalogOverlay) hud.catalogOverlay.style.display = 'block';
   if (bgmGain) bgmGain.gain.setTargetAtTime(0.018, audioCtx.currentTime, 0.08);
@@ -3666,15 +3703,14 @@ if (hud.viewCatalog) {
   });
 }
 
-if (hud.replayLineFloating) {
-  hud.replayLineFloating.addEventListener('pointerdown', (event) => {
+if (hud.confirmDetail) {
+  hud.confirmDetail.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    primeSpeech();
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    if (!playRecordedVoice(moataroServiceVoiceSrc)) {
-      speakText(moataroServiceLine, { rate: 1.05, pitch: 0.92, volume: 1 });
-    }
+    let term = 'おすわり';
+    if (tempSelectedMoaiType === 2) term = 'まちょい';
+    if (tempSelectedMoaiType === 3) term = 'メガネ';
+    openCatalogPause(term);
   });
 }
 

@@ -737,6 +737,18 @@
         });
       }
 
+      // Automatically open detail if "?search=" is present in URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const searchProduct = searchParams.get('search');
+      if (searchProduct) {
+        setTimeout(() => {
+          const idx = window.currentRenderedProducts.findIndex(p => p.name && p.name.replace(/\n/g, '').replace(/\s/g, '').includes(searchProduct));
+          if (idx !== -1) {
+            openDetail(idx);
+          }
+        }, 150);
+      }
+
       // --- Carousel ---
       const track = document.getElementById('carousel-track');
       const dots  = document.getElementById('carousel-dots');
