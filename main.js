@@ -273,6 +273,9 @@ const hud = {
   confirmImg: document.getElementById('confirm-img'),
   confirmYes: document.getElementById('btn-confirm-yes'),
   confirmNo: document.getElementById('btn-confirm-no'),
+  serviceMenu: document.getElementById('moataro-service-menu'),
+  replayLineFloating: document.getElementById('btn-replay-line-floating'),
+  viewCatalogFloating: document.getElementById('btn-view-catalog-floating'),
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2821,16 +2824,11 @@ function speakMoataroLine() {
 }
 
 function updateMoataroShopDialog() {
-  if (!hud.shop) return;
-  const shouldShow = moataroServiceActive && !moataroPromptDismissed;
-  hud.shop.style.display = shouldShow ? 'flex' : 'none';
-  const showBtn = moataroMoaiPurchased ? 'none' : '';
-  if (hud.buyMoai1) hud.buyMoai1.style.display = showBtn;
-  if (hud.buyMoai2) hud.buyMoai2.style.display = showBtn;
-  if (hud.buyMoai3) hud.buyMoai3.style.display = showBtn;
-  if (hud.replayLine) hud.replayLine.style.display = '';
-  if (hud.viewCatalog) hud.viewCatalog.style.display = '';
-  if (hud.skipMoai) hud.skipMoai.style.display = '';
+  if (hud.shop) hud.shop.style.display = 'none';
+  const shouldShowFloating = moataroServiceActive && !moataroMoaiPurchased;
+  if (hud.serviceMenu) {
+    hud.serviceMenu.style.display = shouldShowFloating ? 'flex' : 'none';
+  }
 }
 
 function updateMoataroService(dt) {
@@ -2947,13 +2945,13 @@ function checkStarterMoaiClick() {
 
 function showMoaiConfirmation(type) {
   tempSelectedMoaiType = type;
-  let name = 'おすわりモアイ';
+  let name = 'おすわりモアイペン立て';
   let imgSrc = './moai_shot.png';
   if (type === 2) {
-    name = 'ルアー立モアイ';
+    name = 'まちょいモアイルアースタンド';
     imgSrc = './moai_lure.png';
   } else if (type === 3) {
-    name = 'メガネ立モアイ';
+    name = 'まちょいモアイメガネスタンド';
     imgSrc = './moai_glasses.png';
   }
   
@@ -3651,6 +3649,26 @@ if (hud.replayLine) {
 
 if (hud.viewCatalog) {
   hud.viewCatalog.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openCatalogPause();
+  });
+}
+
+if (hud.replayLineFloating) {
+  hud.replayLineFloating.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    primeSpeech();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (!playRecordedVoice(moataroServiceVoiceSrc)) {
+      speakText(moataroServiceLine, { rate: 1.05, pitch: 0.92, volume: 1 });
+    }
+  });
+}
+
+if (hud.viewCatalogFloating) {
+  hud.viewCatalogFloating.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     event.stopPropagation();
     openCatalogPause();

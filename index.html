@@ -825,7 +825,7 @@
             transform: translate(-50%, -50%);
             z-index: 20;
             display: none;
-            width: min(320px, calc(100vw - 28px));
+            width: min(420px, calc(100vw - 28px));
             padding: 22px;
             border-radius: 12px;
             background: rgba(7, 18, 24, 0.94);
@@ -960,13 +960,18 @@
     <div id="confirm-dialog">
         <div class="confirm-header" id="confirm-title">作品名</div>
         <div class="confirm-body">
-            <img id="confirm-img" src="" alt="Selected Moai" style="width: 140px; height: 165px; object-fit: contain; margin: 10px 0; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));">
+            <img id="confirm-img" src="" alt="Selected Moai" style="width: 220px; height: 260px; max-width: 100%; object-fit: contain; margin: 10px 0; filter: drop-shadow(0 8px 20px rgba(0,0,0,0.65));">
             <div class="confirm-message">このモアイを連れていきますか？</div>
         </div>
         <div class="confirm-actions">
             <button id="btn-confirm-yes" type="button" class="primary">はい</button>
             <button id="btn-confirm-no" type="button" class="secondary">いいえ</button>
         </div>
+    </div>
+
+    <div id="moataro-service-menu" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 15; gap: 10px;">
+        <button id="btn-replay-line-floating" type="button" style="min-width: 120px; min-height: 40px; border-radius: 8px; font-weight: 900; font-family: inherit; cursor: pointer; background: linear-gradient(135deg, #ffbc69, #ff9f3b); color: #101a20; border: none; box-shadow: 0 4px 15px rgba(255,188,105,0.35); transition: transform 0.15s ease;">セリフ再生</button>
+        <button id="btn-view-catalog-floating" type="button" style="min-width: 120px; min-height: 40px; border-radius: 8px; font-weight: 900; font-family: inherit; cursor: pointer; background: rgba(7, 18, 24, 0.88); border: 1.5px solid rgba(255,255,255,0.25); color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.35); transition: transform 0.15s ease;">作品お品書き</button>
     </div>
 
     <div id="catalog-overlay">
@@ -982,7 +987,7 @@
       }
     }
     </script>
-    <script type="module" src="./main.js?v=20260702_move_lock_author_fix"></script>
+    <script type="module" src="./main.js?v=20260702_floating_menu_names"></script>
 </body>
 
 </html>
